@@ -7,6 +7,7 @@ import Accounts from './routes/Accounts'
 import Categories from './routes/Categories'
 import Transactions from './routes/Transactions'
 import Budgets from './routes/Budgets'
+import Dashboard from './routes/Dashboard'
 
 export default function App() {
   return (
@@ -15,7 +16,7 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route index element={<h1 className="text-2xl font-semibold">Dashboard</h1>} />
+          <Route index element={<Dashboard />} />
           <Route path="accounts" element={<Accounts />} />
           <Route path="categories" element={<Categories />} />
           <Route path="transactions" element={<Transactions />} />
