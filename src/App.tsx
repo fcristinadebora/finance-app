@@ -5,6 +5,7 @@ import ProtectedRoute from './routes/ProtectedRoute'
 import Layout from './routes/Layout'
 import Accounts from './routes/Accounts'
 import Categories from './routes/Categories'
+import Transactions from './routes/Transactions'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route index element={<h1 className="text-2xl font-semibold">Dashboard</h1>} />
           <Route path="accounts" element={<Accounts />} />
           <Route path="categories" element={<Categories />} />
+          <Route path="transactions" element={<Transactions />} />
         </Route>
       </Route>
     </Routes>
