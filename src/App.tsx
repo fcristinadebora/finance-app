@@ -6,6 +6,7 @@ import Layout from './routes/Layout'
 import Accounts from './routes/Accounts'
 import Categories from './routes/Categories'
 import Transactions from './routes/Transactions'
+import Budgets from './routes/Budgets'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="accounts" element={<Accounts />} />
           <Route path="categories" element={<Categories />} />
           <Route path="transactions" element={<Transactions />} />
+          <Route path="budgets" element={<Budgets />} />
         </Route>
       </Route>
     </Routes>
