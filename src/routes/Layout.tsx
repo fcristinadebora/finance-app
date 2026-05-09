@@ -1,8 +1,16 @@
 import { Outlet } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { useEffect } from 'react'
+  import { listAccounts } from '../data'
 
 export default function Layout() {
   const { user, signOut } = useAuth()
+
+  
+
+useEffect(() => {
+  listAccounts().then(rows => console.log('accounts', rows)).catch(console.error)
+}, [])
 
   return (
     <>
