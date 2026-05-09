@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { listAccounts, createAccount, deleteAccount } from '../data'
+import { listAccounts, listAccountBalances, createAccount, deleteAccount } from '../data'
 import type { Account } from '../data'
 
 const ACCOUNT_TYPES = ['checking', 'savings', 'credit_card', 'investment', 'cash', 'other'] as const
@@ -10,6 +10,7 @@ function formatBalance(amount: number, currency: string) {
 
 export default function Accounts() {
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [balances, setBalances] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const dialogRef = useRef<HTMLDialogElement>(null)
 
@@ -20,8 +21,8 @@ export default function Accounts() {
   const [pending, setPending] = useState(false)
 
   const load = () =>
-    listAccounts()
-      .then(setAccounts)
+    Promise.all([listAccounts(), listAccountBalances()])
+      .then(([accs, bals]) => { setAccounts(accs); setBalances(bals) })
       .catch(err => alert(err.message))
       .finally(() => setLoading(false))
 
@@ -83,6 +84,7 @@ export default function Accounts() {
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Type</th>
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Currency</th>
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Starting balance</th>
+              <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Current balance</th>
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium"></th>
             </tr>
           </thead>
@@ -93,6 +95,12 @@ export default function Accounts() {
                 <td className="py-3 text-slate-600 capitalize">{row.type.replace('_', ' ')}</td>
                 <td className="py-3 text-slate-600">{row.currency}</td>
                 <td className="py-3 text-slate-600">{formatBalance(row.starting_balance, row.currency)}</td>
+                <td className={`py-3 font-medium tabular-nums ${
+                  (balances[row.id] ?? 0) > 0 ? 'text-emerald-600' :
+                  (balances[row.id] ?? 0) < 0 ? 'text-red-600' : ''
+                }`}>
+                  {formatBalance(balances[row.id] ?? 0, row.currency)}
+                </td>
                 <td className="py-3 text-right">
                   <button
                     onClick={() => handleDelete(row)}

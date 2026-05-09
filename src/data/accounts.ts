@@ -45,3 +45,11 @@ export async function deleteAccount(id: string): Promise<void> {
   const { error } = await supabase.from('accounts').delete().eq('id', id)
   if (error) throw error
 }
+
+export async function listAccountBalances(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('account_balances')
+    .select('account_id, current_balance')
+  if (error) throw error
+  return Object.fromEntries(data.map(row => [row.account_id, Number(row.current_balance)]))
+}

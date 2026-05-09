@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { Chart, ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut, Bar } from 'react-chartjs-2'
-import { listAccounts, listCategories, listTransactions } from '../data'
+import { listAccounts, listAccountBalances, listCategories, listTransactions } from '../data'
 import type { Account, Category, Transaction } from '../data'
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
@@ -49,6 +49,7 @@ function getMonthBounds(monthsAgo: number) {
 
 export default function Dashboard() {
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [balances, setBalances] = useState<Record<string, number>>({})
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,11 +57,13 @@ export default function Dashboard() {
   useEffect(() => {
     Promise.all([
       listAccounts(),
+      listAccountBalances(),
       listCategories(),
       listTransactions({ from: monthsAgoStart(5) }),
     ])
-      .then(([accs, cats, txs]) => {
+      .then(([accs, bals, cats, txs]) => {
         setAccounts(accs)
+        setBalances(bals)
         setCategories(cats)
         setTransactions(txs)
       })
@@ -73,16 +76,7 @@ export default function Dashboard() {
 
   const categoryById = Object.fromEntries(categories.map(c => [c.id, c]))
 
-  // TODO: totalBalance is approximate — only accounts for the last 6 months of
-  // transactions. Load all transactions per account for an exact figure.
-  const txsByAccount: Record<string, number> = {}
-  for (const t of transactions) {
-    txsByAccount[t.account_id] = (txsByAccount[t.account_id] ?? 0) + t.amount
-  }
-  const totalBalance = accounts.reduce(
-    (sum, a) => sum + a.starting_balance + (txsByAccount[a.id] ?? 0),
-    0,
-  )
+  const totalBalance = Object.values(balances).reduce((s, n) => s + n, 0)
 
   const thisMonthStart = firstOfMonthISO()
   const thisMonthEnd = lastOfMonthISO()
