@@ -196,6 +196,44 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* accounts section */}
+      {(() => {
+        const maxAbsBalance = Math.max(0, ...accounts.map(a => Math.abs(balances[a.id] ?? 0)))
+        return (
+          <div className="border rounded-lg p-4">
+            <p className="text-sm font-medium mb-3">Accounts</p>
+            {accounts.length === 0 ? (
+              <p className="text-slate-400 text-sm text-center">No accounts yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {accounts.map(a => {
+                  const balance = balances[a.id] ?? 0
+                  return (
+                    <div key={a.id}>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium text-sm">{a.name}</p>
+                          <p className="text-xs text-slate-500 capitalize">{a.type.replace('_', ' ')}</p>
+                        </div>
+                        <p className={`tabular-nums text-sm font-medium ${balance > 0 ? 'text-emerald-600' : balance < 0 ? 'text-red-600' : ''}`}>
+                          {new Intl.NumberFormat(undefined, { style: 'currency', currency: a.currency }).format(balance)}
+                        </p>
+                      </div>
+                      <div className="bg-slate-200 rounded h-1 overflow-hidden mt-2">
+                        <div
+                          className={`h-full rounded transition-all duration-300 ${balance >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
+                          style={{ width: maxAbsBalance > 0 ? `${(Math.abs(balance) / maxAbsBalance) * 100}%` : '0%' }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* chart row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="border rounded-lg p-4">
