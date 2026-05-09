@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { listAccounts, listAccountBalances, createAccount, deleteAccount } from '../data'
+import { listAccounts, listAccountBalances, createAccount, updateAccount, deleteAccount } from '../data'
 import type { Account } from '../data'
 
 const ACCOUNT_TYPES = ['checking', 'savings', 'credit_card', 'investment', 'cash', 'other'] as const
@@ -14,10 +14,12 @@ export default function Accounts() {
   const [loading, setLoading] = useState(true)
   const dialogRef = useRef<HTMLDialogElement>(null)
 
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [type, setType] = useState<typeof ACCOUNT_TYPES[number]>('checking')
   const [currency, setCurrency] = useState('USD')
   const [startingBalance, setStartingBalance] = useState(0)
+  const [description, setDescription] = useState('')
   const [pending, setPending] = useState(false)
 
   const load = () =>
@@ -28,19 +30,36 @@ export default function Accounts() {
 
   useEffect(() => { load() }, [])
 
-  const openDialog = () => {
+  const openAdd = () => {
+    setEditingId(null)
     setName('')
     setType('checking')
     setCurrency('USD')
     setStartingBalance(0)
+    setDescription('')
     dialogRef.current?.showModal()
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openEdit = (a: Account) => {
+    setEditingId(a.id)
+    setName(a.name)
+    setType(a.type as typeof ACCOUNT_TYPES[number])
+    setCurrency(a.currency)
+    setStartingBalance(a.starting_balance)
+    setDescription(a.description ?? '')
+    dialogRef.current?.showModal()
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setPending(true)
+    const payload = { name, type, currency, starting_balance: startingBalance, description: description || null }
     try {
-      await createAccount({ name, type, currency, starting_balance: startingBalance })
+      if (editingId) {
+        await updateAccount(editingId, payload)
+      } else {
+        await createAccount(payload)
+      }
       dialogRef.current?.close()
       await load()
     } catch (err: any) {
@@ -50,7 +69,8 @@ export default function Accounts() {
     }
   }
 
-  const handleDelete = async (account: Account) => {
+  const handleDelete = async (e: React.MouseEvent, account: Account) => {
+    e.stopPropagation()
     if (!window.confirm('Delete this account? Its transactions will also be deleted.')) return
     try {
       await deleteAccount(account.id)
@@ -65,7 +85,7 @@ export default function Accounts() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Accounts</h1>
         <button
-          onClick={openDialog}
+          onClick={openAdd}
           className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 text-sm"
         >
           Add account
@@ -90,8 +110,29 @@ export default function Accounts() {
           </thead>
           <tbody>
             {accounts.map(row => (
-              <tr key={row.id} className="border-b last:border-0 hover:bg-slate-50">
-                <td className="py-3 font-medium">{row.name}</td>
+              <tr
+                key={row.id}
+                onClick={() => openEdit(row)}
+                className="border-b last:border-0 hover:bg-slate-50 cursor-pointer"
+              >
+                <td className="py-3 font-medium">
+                  <span className="inline-flex items-center gap-1.5">
+                    {row.name}
+                    {row.description && (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-3.5 h-3.5 text-slate-300 shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <title>{row.description}</title>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                  </span>
+                </td>
                 <td className="py-3 text-slate-600 capitalize">{row.type.replace('_', ' ')}</td>
                 <td className="py-3 text-slate-600">{row.currency}</td>
                 <td className="py-3 text-slate-600">{formatBalance(row.starting_balance, row.currency)}</td>
@@ -103,7 +144,7 @@ export default function Accounts() {
                 </td>
                 <td className="py-3 text-right">
                   <button
-                    onClick={() => handleDelete(row)}
+                    onClick={e => handleDelete(e, row)}
                     className="text-slate-400 hover:text-red-600 text-xs"
                     aria-label="Delete account"
                   >
@@ -120,13 +161,11 @@ export default function Accounts() {
 
       <dialog
         ref={dialogRef}
-        onClick={(e) => {
-          if (e.target === dialogRef.current) dialogRef.current.close()
-        }}
+        onClick={e => { if (e.target === dialogRef.current) dialogRef.current.close() }}
         className="rounded-lg shadow-lg p-6 w-full max-w-sm m-auto fixed inset-0 backdrop:bg-black/40"
       >
-        <h2 className="text-lg font-semibold mb-4">Add account</h2>
-        <form onSubmit={handleCreate} className="space-y-4">
+        <h2 className="text-lg font-semibold mb-4">{editingId ? 'Edit account' : 'Add account'}</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="acc-name">Name</label>
             <input
@@ -170,6 +209,16 @@ export default function Accounts() {
               value={startingBalance}
               onChange={e => setStartingBalance(parseFloat(e.target.value) || 0)}
               className="border rounded px-3 py-2 w-full"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium" htmlFor="acc-description">Description (optional)</label>
+            <textarea
+              id="acc-description"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={3}
+              className="border rounded px-3 py-2 w-full resize-none"
             />
           </div>
           <div className="flex gap-3 pt-2">

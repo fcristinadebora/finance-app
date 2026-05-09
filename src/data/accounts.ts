@@ -51,5 +51,9 @@ export async function listAccountBalances(): Promise<Record<string, number>> {
     .from('account_balances')
     .select('account_id, current_balance')
   if (error) throw error
-  return Object.fromEntries(data.map(row => [row.account_id, Number(row.current_balance)]))
+  return Object.fromEntries(
+    data
+      .filter(row => row.account_id != null)
+      .map(row => [row.account_id!, Number(row.current_balance ?? 0)]),
+  )
 }
