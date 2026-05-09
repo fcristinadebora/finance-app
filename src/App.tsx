@@ -1,12 +1,19 @@
-import { useEffect } from 'react'
-import { supabase } from './lib/supabase'
+import { Routes, Route } from 'react-router-dom'
+import Login from './routes/Login'
+import Signup from './routes/Signup'
+import ProtectedRoute from './routes/ProtectedRoute'
+import Layout from './routes/Layout'
 
-function App() {
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data, error }) => {
-      console.log('supabase ok', { data, error })
-    })
-  }, [])
-  return <h1 className="text-3xl font-bold p-8">Finance</h1>
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<Layout />}>
+          <Route index element={<h1 className="text-2xl font-semibold">Dashboard</h1>} />
+        </Route>
+      </Route>
+    </Routes>
+  )
 }
-export default App
