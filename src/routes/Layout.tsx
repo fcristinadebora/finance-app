@@ -1,16 +1,19 @@
-import { Outlet } from 'react-router-dom'
+import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { useEffect } from 'react'
-  import { listAccounts } from '../data'
+
+const navLinks = [
+  { to: '/', label: 'Dashboard', end: true },
+  { to: '/accounts', label: 'Accounts' },
+  { to: '/categories', label: 'Categories' },
+  { to: '/transactions', label: 'Transactions' },
+  { to: '/budgets', label: 'Budgets' },
+]
+
+const activeClass = 'text-slate-900 font-semibold border-b-2 border-slate-900'
+const inactiveClass = 'text-slate-500 hover:text-slate-800'
 
 export default function Layout() {
   const { user, signOut } = useAuth()
-
-  
-
-useEffect(() => {
-  listAccounts().then(rows => console.log('accounts', rows)).catch(console.error)
-}, [])
 
   return (
     <>
@@ -26,6 +29,20 @@ useEffect(() => {
           </button>
         </div>
       </header>
+      <nav className="border-b px-4 flex gap-6">
+        {navLinks.map(({ to, label, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              `py-3 text-sm ${isActive ? activeClass : inactiveClass}`
+            }
+          >
+            {label}
+          </NavLink>
+        ))}
+      </nav>
       <main className="max-w-5xl mx-auto p-4">
         <Outlet />
       </main>
