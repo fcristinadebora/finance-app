@@ -111,8 +111,6 @@ export default function Transactions() {
     }
   }
 
-  const filteredCategories = categories.filter(c => c.kind === txType)
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setPending(true)
@@ -362,7 +360,7 @@ export default function Transactions() {
               id="tx-category"
               value={categoryId}
               onChange={setCategoryId}
-              options={[{ value: '', label: 'None' }, ...filteredCategories.map(c => ({ value: c.id, label: c.name }))]}
+              options={[{ value: '', label: 'None' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
             />
           </div>
 
