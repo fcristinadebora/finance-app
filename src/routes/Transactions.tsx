@@ -78,7 +78,6 @@ export default function Transactions() {
     setEditingId(null)
     setTxType('expense')
     setAmount('')
-    setDate(today())
     setAccountId(accounts[0]?.id ?? '')
     setCategoryId('')
     setDescription('')

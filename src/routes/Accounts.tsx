@@ -161,7 +161,6 @@ export default function Accounts() {
 
       <dialog
         ref={dialogRef}
-        onClick={e => { if (e.target === dialogRef.current) dialogRef.current.close() }}
         className="rounded-lg shadow-lg p-6 w-full max-w-sm m-auto fixed inset-0 backdrop:bg-black/40"
       >
         <h2 className="text-lg font-semibold mb-4">{editingId ? 'Edit account' : 'Add account'}</h2>
