@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { listBudgets, upsertBudget, deleteBudget, listCategories, listTransactions, listAccounts } from '../data'
 import type { Budget, Category } from '../data'
+import SearchableSelect from '../components/SearchableSelect'
 
 function firstOfMonthISO() {
   const d = new Date()
@@ -202,17 +203,13 @@ export default function Budgets() {
                 {categoryById[editingCategoryId]?.name ?? '—'}
               </p>
             ) : (
-              <select
+              <SearchableSelect
                 id="bud-category"
-                required
                 value={selectedCategoryId}
-                onChange={e => setSelectedCategoryId(e.target.value)}
-                className="border rounded px-3 py-2 w-full"
-              >
-                {availableForNew.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+                onChange={setSelectedCategoryId}
+                options={availableForNew.map(c => ({ value: c.id, label: c.name }))}
+                required
+              />
             )}
           </div>
           <div className="space-y-1">

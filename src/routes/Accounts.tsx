@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { listAccounts, listAccountBalances, createAccount, updateAccount, deleteAccount } from '../data'
 import type { Account } from '../data'
+import SearchableSelect from '../components/SearchableSelect'
 
 const ACCOUNT_TYPES = ['checking', 'savings', 'credit_card', 'investment', 'cash', 'other'] as const
 
@@ -178,16 +179,13 @@ export default function Accounts() {
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="acc-type">Type</label>
-            <select
+            <SearchableSelect
               id="acc-type"
               value={type}
-              onChange={e => setType(e.target.value as typeof ACCOUNT_TYPES[number])}
-              className="border rounded px-3 py-2 w-full"
-            >
-              {ACCOUNT_TYPES.map(t => (
-                <option key={t} value={t}>{t.replace('_', ' ')}</option>
-              ))}
-            </select>
+              onChange={v => setType(v as typeof ACCOUNT_TYPES[number])}
+              options={ACCOUNT_TYPES.map(t => ({ value: t, label: t.replace('_', ' ') }))}
+              required
+            />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="acc-currency">Currency</label>

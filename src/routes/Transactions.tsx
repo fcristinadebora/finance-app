@@ -5,6 +5,7 @@ import {
   listAccounts, listCategories, listAccountBalances,
 } from '../data'
 import type { Transaction, Account, Category } from '../data'
+import SearchableSelect from '../components/SearchableSelect'
 
 type TxType = 'expense' | 'income'
 
@@ -211,25 +212,19 @@ export default function Transactions() {
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500">Account</label>
-          <select
+          <SearchableSelect
             value={filterAccount}
-            onChange={e => setFilterAccount(e.target.value)}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            <option value="">All accounts</option>
-            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+            onChange={setFilterAccount}
+            options={[{ value: '', label: 'All accounts' }, ...accounts.map(a => ({ value: a.id, label: a.name }))]}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500">Category</label>
-          <select
+          <SearchableSelect
             value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            <option value="">All categories</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+            onChange={setFilterCategory}
+            options={[{ value: '', label: 'All categories' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
+          />
         </div>
         {hasFilters && (
           <button
@@ -352,28 +347,23 @@ export default function Transactions() {
 
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="tx-account">Account</label>
-            <select
+            <SearchableSelect
               id="tx-account"
-              required
               value={accountId}
-              onChange={e => setAccountId(e.target.value)}
-              className="border rounded px-3 py-2 w-full"
-            >
-              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+              onChange={setAccountId}
+              options={accounts.map(a => ({ value: a.id, label: a.name }))}
+              required
+            />
           </div>
 
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="tx-category">Category</label>
-            <select
+            <SearchableSelect
               id="tx-category"
               value={categoryId}
-              onChange={e => setCategoryId(e.target.value)}
-              className="border rounded px-3 py-2 w-full"
-            >
-              <option value="">None</option>
-              {filteredCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+              onChange={setCategoryId}
+              options={[{ value: '', label: 'None' }, ...filteredCategories.map(c => ({ value: c.id, label: c.name }))]}
+            />
           </div>
 
           <div className="space-y-1">
