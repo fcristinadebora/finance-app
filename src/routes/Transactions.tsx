@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import {
   listTransactions, createTransaction, updateTransaction, deleteTransaction,
-  listAccounts, listCategories,
+  listAccounts, listCategories, listAccountBalances,
 } from '../data'
 import type { Transaction, Account, Category } from '../data'
 
@@ -22,6 +22,7 @@ export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [balances, setBalances] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   // filters
@@ -44,14 +45,16 @@ export default function Transactions() {
 
   const load = async () => {
     try {
-      const [txs, accs, cats] = await Promise.all([
+      const [txs, accs, cats, bals] = await Promise.all([
         listTransactions(),
         listAccounts(),
         listCategories(),
+        listAccountBalances(),
       ])
       setTransactions(txs)
       setAccounts(accs)
       setCategories(cats)
+      setBalances(bals)
     } catch (err: any) {
       alert(err.message)
     } finally {
@@ -168,6 +171,23 @@ export default function Transactions() {
           </button>
         </div>
       </div>
+
+      {/* balance strip */}
+      {accounts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
+          {accounts.map(a => {
+            const b = balances[a.id] ?? 0
+            return (
+              <span key={a.id}>
+                {a.name}{' '}
+                <span className={`font-medium tabular-nums ${b > 0 ? 'text-emerald-600' : b < 0 ? 'text-red-600' : 'text-slate-700'}`}>
+                  {new Intl.NumberFormat(undefined, { style: 'currency', currency: a.currency }).format(b)}
+                </span>
+              </span>
+            )
+          })}
+        </div>
+      )}
 
       {/* filter row */}
       <div className="flex flex-wrap gap-3 items-end p-3 bg-slate-50 rounded">
