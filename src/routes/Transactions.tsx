@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import {
   listTransactions, createTransaction, updateTransaction, deleteTransaction,
+  createTransfer, updateTransfer,
   listAccounts, listCategories, listAccountBalances,
 } from '../data'
 import type { Transaction, Account, Category } from '../data'
 import SearchableSelect from '../components/SearchableSelect'
 
-type TxType = 'expense' | 'income'
+type TxType = 'expense' | 'income' | 'transfer'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -31,18 +32,26 @@ export default function Transactions() {
   const [toDate, setToDate] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
+  const [showTransfers, setShowTransfers] = useState(true)
 
-  // dialog state
+  // dialog state — shared
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [txType, setTxType] = useState<TxType>('expense')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(today())
-  const [accountId, setAccountId] = useState('')
-  const [categoryId, setCategoryId] = useState('')
   const [description, setDescription] = useState('')
   const [notes, setNotes] = useState('')
   const [pending, setPending] = useState(false)
+
+  // dialog state — income/expense only
+  const [accountId, setAccountId] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+
+  // dialog state — transfer only
+  const [fromAccountId, setFromAccountId] = useState('')
+  const [toAccountId, setToAccountId] = useState('')
+  const [editingTransferLegs, setEditingTransferLegs] = useState<[Transaction, Transaction] | null>(null)
 
   const load = async () => {
     try {
@@ -67,10 +76,12 @@ export default function Transactions() {
 
   const accountById = buildMap(accounts)
   const categoryById = buildMap(categories)
+  const txById = buildMap(transactions)
 
   const hasFilters = !!(fromDate || toDate || filterAccount || filterCategory)
 
   const visible = transactions.filter(t => {
+    if (!showTransfers && t.kind === 'transfer') return false
     if (fromDate && t.occurred_on < fromDate) return false
     if (toDate && t.occurred_on > toDate) return false
     if (filterAccount && t.account_id !== filterAccount) return false
@@ -82,30 +93,52 @@ export default function Transactions() {
     setEditingId(null)
     setTxType('expense')
     setAmount('')
+    setDate(today())
     setAccountId(accounts[0]?.id ?? '')
     setCategoryId('')
     setDescription('')
     setNotes('')
+    setFromAccountId(accounts[0]?.id ?? '')
+    setToAccountId(accounts[1]?.id ?? accounts[0]?.id ?? '')
+    setEditingTransferLegs(null)
     dialogRef.current?.showModal()
   }
 
   const openEdit = (t: Transaction) => {
-    const type: TxType = t.amount >= 0 ? 'income' : 'expense'
     setEditingId(t.id)
-    setTxType(type)
     setAmount(String(Math.abs(t.amount)))
     setDate(t.occurred_on)
-    setAccountId(t.account_id)
-    setCategoryId(t.category_id ?? '')
     setDescription(t.description)
     setNotes(t.notes ?? '')
+
+    if (t.kind === 'transfer') {
+      const pairLeg = t.transfer_pair_id ? txById[t.transfer_pair_id] : null
+      const fromLeg = t.amount < 0 ? t : pairLeg
+      const toLeg = t.amount >= 0 ? t : pairLeg
+      setTxType('transfer')
+      setFromAccountId(fromLeg?.account_id ?? '')
+      setToAccountId(toLeg?.account_id ?? '')
+      setEditingTransferLegs(
+        fromLeg && toLeg ? [fromLeg, toLeg] : null,
+      )
+      setAccountId('')
+      setCategoryId('')
+    } else {
+      setTxType(t.amount >= 0 ? 'income' : 'expense')
+      setAccountId(t.account_id)
+      setCategoryId(t.category_id ?? '')
+      setEditingTransferLegs(null)
+    }
+
     dialogRef.current?.showModal()
   }
 
   const handleTypeToggle = (next: TxType) => {
     setTxType(next)
-    // reset category if it doesn't match the new type
-    if (categoryId) {
+    if (next === 'transfer') {
+      setFromAccountId(accounts[0]?.id ?? '')
+      setToAccountId(accounts[1]?.id ?? accounts[0]?.id ?? '')
+    } else if (categoryId) {
       const cat = categoryById[categoryId]
       if (cat && cat.kind !== next) setCategoryId('')
     }
@@ -114,20 +147,49 @@ export default function Transactions() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setPending(true)
-    const signedAmount = txType === 'expense' ? -Math.abs(Number(amount)) : Math.abs(Number(amount))
-    const payload = {
-      amount: signedAmount,
-      occurred_on: date,
-      account_id: accountId,
-      category_id: categoryId || null,
-      description,
-      notes: notes || null,
-    }
     try {
-      if (editingId) {
-        await updateTransaction(editingId, payload)
+      if (txType === 'transfer') {
+        if (editingId && editingTransferLegs) {
+          const [fromLeg, toLeg] = editingTransferLegs
+          const patch: Parameters<typeof updateTransfer>[1] = {
+            occurredOn: date,
+            description,
+            notes: notes || null,
+            amount: Math.abs(Number(amount)),
+          }
+          await updateTransfer(editingTransferLegs, patch)
+          if (fromAccountId !== fromLeg.account_id) {
+            await updateTransaction(fromLeg.id, { account_id: fromAccountId })
+          }
+          if (toAccountId !== toLeg.account_id) {
+            await updateTransaction(toLeg.id, { account_id: toAccountId })
+          }
+        } else {
+          await createTransfer({
+            fromAccountId,
+            toAccountId,
+            amount: Math.abs(Number(amount)),
+            occurredOn: date,
+            description,
+            notes: notes || null,
+          })
+        }
       } else {
-        await createTransaction(payload)
+        const signedAmount = txType === 'expense' ? -Math.abs(Number(amount)) : Math.abs(Number(amount))
+        const payload = {
+          kind: txType,
+          amount: signedAmount,
+          occurred_on: date,
+          account_id: accountId,
+          category_id: categoryId || null,
+          description,
+          notes: notes || null,
+        }
+        if (editingId) {
+          await updateTransaction(editingId, payload)
+        } else {
+          await createTransaction(payload)
+        }
       }
       dialogRef.current?.close()
       setLoading(true)
@@ -141,7 +203,10 @@ export default function Transactions() {
 
   const handleDelete = async (e: React.MouseEvent, t: Transaction) => {
     e.stopPropagation()
-    if (!window.confirm('Delete this transaction?')) return
+    const msg = t.kind === 'transfer'
+      ? 'Delete this transfer? Both legs will be removed.'
+      : 'Delete this transaction?'
+    if (!window.confirm(msg)) return
     try {
       await deleteTransaction(t.id)
       await load()
@@ -151,6 +216,11 @@ export default function Transactions() {
   }
 
   const noAccounts = accounts.length === 0
+  const isEditing = editingId !== null
+  const isTransferDialog = txType === 'transfer'
+  const dialogTitle = isTransferDialog
+    ? (isEditing ? 'Edit transfer' : 'Add transfer')
+    : (isEditing ? 'Edit transaction' : 'Add transaction')
 
   return (
     <div className="space-y-4">
@@ -224,6 +294,15 @@ export default function Transactions() {
             options={[{ value: '', label: 'All categories' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
           />
         </div>
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showTransfers}
+            onChange={e => setShowTransfers(e.target.checked)}
+            className="rounded"
+          />
+          Show transfers
+        </label>
         {hasFilters && (
           <button
             onClick={() => { setFromDate(''); setToDate(''); setFilterAccount(''); setFilterCategory('') }}
@@ -257,18 +336,28 @@ export default function Transactions() {
             {visible.map(t => {
               const acc = accountById[t.account_id]
               const cat = categoryById[t.category_id ?? '']
+              const isTransfer = t.kind === 'transfer'
+              const pairLeg = isTransfer && t.transfer_pair_id ? txById[t.transfer_pair_id] : null
+              const pairAcc = pairLeg ? accountById[pairLeg.account_id] : null
+              const transferLabel = isTransfer
+                ? (t.amount < 0 ? `→ ${pairAcc?.name ?? '—'}` : `← ${pairAcc?.name ?? '—'}`)
+                : null
               return (
                 <tr
                   key={t.id}
                   onClick={() => openEdit(t)}
-                  className="border-b last:border-0 hover:bg-slate-50 cursor-pointer"
+                  className={`border-b last:border-0 hover:bg-slate-50 cursor-pointer ${isTransfer ? 'bg-slate-50/60' : ''}`}
                 >
                   <td className="py-3 text-slate-600 whitespace-nowrap">
                     {format(new Date(t.occurred_on + 'T00:00:00'), 'MMM d, yyyy')}
                   </td>
                   <td className="py-3 font-medium">{t.description}</td>
                   <td className="py-3 text-slate-600">{acc?.name ?? '—'}</td>
-                  <td className="py-3 text-slate-600">{cat?.name ?? '—'}</td>
+                  <td className="py-3 text-slate-500">
+                    {isTransfer
+                      ? <span className="inline-flex items-center gap-1 text-xs font-medium bg-slate-200 text-slate-600 rounded px-1.5 py-0.5">{transferLabel}</span>
+                      : (cat?.name ?? '—')}
+                  </td>
                   <td className={`py-3 text-right font-medium tabular-nums ${t.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                     {acc ? formatAmount(t.amount, acc.currency) : t.amount}
                   </td>
@@ -296,18 +385,17 @@ export default function Transactions() {
         onClick={e => { if (e.target === dialogRef.current) dialogRef.current.close() }}
         className="rounded-lg shadow-lg p-6 w-full max-w-md m-auto fixed inset-0 backdrop:bg-black/40"
       >
-        <h2 className="text-lg font-semibold mb-4">
-          {editingId ? 'Edit transaction' : 'Add transaction'}
-        </h2>
+        <h2 className="text-lg font-semibold mb-4">{dialogTitle}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* type toggle */}
+          {/* type toggle — locked while editing so kind can't be switched after the fact */}
           <div className="flex border rounded overflow-hidden w-fit">
-            {(['expense', 'income'] as const).map(t => (
+            {(['expense', 'income', 'transfer'] as const).map(t => (
               <button
                 key={t}
                 type="button"
+                disabled={isEditing}
                 onClick={() => handleTypeToggle(t)}
-                className={`px-4 py-1.5 text-sm capitalize ${
+                className={`px-4 py-1.5 text-sm capitalize disabled:opacity-60 ${
                   txType === t ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'
                 }`}
               >
@@ -323,7 +411,7 @@ export default function Transactions() {
                 id="tx-amount"
                 type="number"
                 step="0.01"
-                min="0"
+                min="0.01"
                 required
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
@@ -343,26 +431,56 @@ export default function Transactions() {
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium" htmlFor="tx-account">Account</label>
-            <SearchableSelect
-              id="tx-account"
-              value={accountId}
-              onChange={setAccountId}
-              options={accounts.map(a => ({ value: a.id, label: a.name }))}
-              required
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium" htmlFor="tx-category">Category</label>
-            <SearchableSelect
-              id="tx-category"
-              value={categoryId}
-              onChange={setCategoryId}
-              options={[{ value: '', label: 'None' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
-            />
-          </div>
+          {isTransferDialog ? (
+            <>
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="tx-from">From account</label>
+                <SearchableSelect
+                  id="tx-from"
+                  value={fromAccountId}
+                  onChange={setFromAccountId}
+                  options={accounts
+                    .filter(a => a.id !== toAccountId)
+                    .map(a => ({ value: a.id, label: a.name }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="tx-to">To account</label>
+                <SearchableSelect
+                  id="tx-to"
+                  value={toAccountId}
+                  onChange={setToAccountId}
+                  options={accounts
+                    .filter(a => a.id !== fromAccountId)
+                    .map(a => ({ value: a.id, label: a.name }))}
+                  required
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="tx-account">Account</label>
+                <SearchableSelect
+                  id="tx-account"
+                  value={accountId}
+                  onChange={setAccountId}
+                  options={accounts.map(a => ({ value: a.id, label: a.name }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="tx-category">Category</label>
+                <SearchableSelect
+                  id="tx-category"
+                  value={categoryId}
+                  onChange={setCategoryId}
+                  options={[{ value: '', label: 'None' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
+                />
+              </div>
+            </>
+          )}
 
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="tx-desc">Description</label>

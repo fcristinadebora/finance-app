@@ -29,7 +29,7 @@ export default function SearchableSelect({ options, value, onChange, placeholder
   return (
     <Combobox
       value={value}
-      onChange={(v: string) => { onChange(v); setQuery('') }}
+      onChange={(v: string | null) => { if (v !== null) onChange(v); setQuery('') }}
       immediate
       onClose={() => setQuery('')}
     >

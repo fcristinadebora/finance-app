@@ -89,6 +89,7 @@ export default function Dashboard() {
   const spendByCategory: Record<string, number> = {}
 
   for (const t of thisMonthTxs) {
+    if (t.kind === 'transfer') continue
     if (t.amount > 0) {
       incomeThisMonth += t.amount
     } else {
@@ -107,6 +108,7 @@ export default function Dashboard() {
     let income = 0, expense = 0
     for (const t of transactions) {
       if (t.occurred_on < start || t.occurred_on > end) continue
+      if (t.kind === 'transfer') continue
       if (t.amount > 0) income += t.amount
       else expense += Math.abs(t.amount)
     }

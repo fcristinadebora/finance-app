@@ -120,8 +120,10 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          kind: string
           notes: string | null
           occurred_on: string
+          transfer_pair_id: string | null
           user_id: string
         }
         Insert: {
@@ -131,8 +133,10 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          kind: string
           notes?: string | null
           occurred_on?: string
+          transfer_pair_id?: string | null
           user_id: string
         }
         Update: {
@@ -142,8 +146,10 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          kind?: string
           notes?: string | null
           occurred_on?: string
+          transfer_pair_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -168,6 +174,13 @@ export type Database = {
             referencedRelation: "categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "transactions_transfer_pair_id_fkey"
+            columns: ["transfer_pair_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -182,7 +195,35 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      create_transfer: {
+        Args: {
+          amount: number
+          description: string
+          from_account: string
+          notes?: string
+          occurred_on: string
+          to_account: string
+        }
+        Returns: {
+          account_id: string
+          amount: number
+          category_id: string | null
+          created_at: string
+          description: string
+          id: string
+          kind: string
+          notes: string | null
+          occurred_on: string
+          transfer_pair_id: string | null
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never

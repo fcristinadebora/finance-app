@@ -52,6 +52,7 @@ export default function Budgets() {
 
       const spend: Record<string, number> = {}
       for (const t of txs) {
+        if (t.kind === 'transfer') continue
         if (t.amount < 0 && t.category_id) {
           spend[t.category_id] = (spend[t.category_id] ?? 0) + Math.abs(t.amount)
         }
