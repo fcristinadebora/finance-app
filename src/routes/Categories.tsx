@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { listCategories, createCategory, deleteCategory } from '../data'
 import type { Category } from '../data'
+import MobileSheet from '../components/MobileSheet'
 
 type KindFilter = 'all' | 'income' | 'expense'
 
@@ -8,7 +9,7 @@ export default function Categories() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<KindFilter>('all')
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   const [name, setName] = useState('')
   const [kind, setKind] = useState<'income' | 'expense'>('expense')
@@ -25,7 +26,7 @@ export default function Categories() {
   const openDialog = () => {
     setName('')
     setKind('expense')
-    dialogRef.current?.showModal()
+    setDialogOpen(true)
   }
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -33,7 +34,7 @@ export default function Categories() {
     setPending(true)
     try {
       await createCategory({ name, kind })
-      dialogRef.current?.close()
+      setDialogOpen(false)
       await load()
     } catch (err: any) {
       alert(err.message)
@@ -126,12 +127,7 @@ export default function Categories() {
         </table>
       )}
 
-      <dialog
-        ref={dialogRef}
-        onClick={e => { if (e.target === dialogRef.current) dialogRef.current.close() }}
-        className="rounded-lg shadow-lg p-6 w-full max-w-sm m-auto fixed inset-0 backdrop:bg-black/40"
-      >
-        <h2 className="text-lg font-semibold mb-4">Add category</h2>
+      <MobileSheet open={dialogOpen} onClose={() => setDialogOpen(false)} title="Add category">
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="cat-name">Name</label>
@@ -171,14 +167,14 @@ export default function Categories() {
             </button>
             <button
               type="button"
-              onClick={() => dialogRef.current?.close()}
+              onClick={() => setDialogOpen(false)}
               className="border px-4 py-3 rounded hover:bg-slate-50 active:bg-slate-100 flex-1"
             >
               Cancel
             </button>
           </div>
         </form>
-      </dialog>
+      </MobileSheet>
     </div>
   )
 }

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { listBudgets, upsertBudget, deleteBudget, listCategories, listTransactions, listAccounts } from '../data'
 import type { Budget, Category } from '../data'
 import SearchableSelect from '../components/SearchableSelect'
+import MobileSheet from '../components/MobileSheet'
 
 function firstOfMonthISO() {
   const d = new Date()
@@ -31,7 +32,7 @@ export default function Budgets() {
   const [currency, setCurrency] = useState('USD')
   const [loading, setLoading] = useState(true)
 
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingCategoryId, setEditingCategoryId] = useState('')
   const [selectedCategoryId, setSelectedCategoryId] = useState('')
@@ -77,7 +78,7 @@ export default function Budgets() {
     setEditingCategoryId('')
     setSelectedCategoryId(availableForNew[0]?.id ?? '')
     setMonthlyLimit('')
-    dialogRef.current?.showModal()
+    setDialogOpen(true)
   }
 
   const openEdit = (b: Budget) => {
@@ -85,7 +86,7 @@ export default function Budgets() {
     setEditingCategoryId(b.category_id)
     setSelectedCategoryId(b.category_id)
     setMonthlyLimit(String(b.monthly_limit))
-    dialogRef.current?.showModal()
+    setDialogOpen(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,7 +94,7 @@ export default function Budgets() {
     setPending(true)
     try {
       await upsertBudget(selectedCategoryId, Number(monthlyLimit))
-      dialogRef.current?.close()
+      setDialogOpen(false)
       setLoading(true)
       await load()
     } catch (err: any) {
@@ -188,14 +189,11 @@ export default function Budgets() {
         </div>
       )}
 
-      <dialog
-        ref={dialogRef}
-        onClick={e => { if (e.target === dialogRef.current) dialogRef.current.close() }}
-        className="rounded-lg shadow-lg p-6 w-full max-w-sm m-auto fixed inset-0 backdrop:bg-black/40"
+      <MobileSheet
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title={editingId ? 'Edit budget' : 'Set budget'}
       >
-        <h2 className="text-lg font-semibold mb-4">
-          {editingId ? 'Edit budget' : 'Set budget'}
-        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="bud-category">Category</label>
@@ -218,6 +216,7 @@ export default function Budgets() {
             <input
               id="bud-limit"
               type="number"
+              inputMode="decimal"
               step="0.01"
               min="0.01"
               required
@@ -236,14 +235,14 @@ export default function Budgets() {
             </button>
             <button
               type="button"
-              onClick={() => dialogRef.current?.close()}
+              onClick={() => setDialogOpen(false)}
               className="border px-4 py-3 rounded hover:bg-slate-50 active:bg-slate-100 flex-1"
             >
               Cancel
             </button>
           </div>
         </form>
-      </dialog>
+      </MobileSheet>
     </div>
   )
 }

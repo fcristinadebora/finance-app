@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import {
   listTransactions, createTransaction, updateTransaction, deleteTransaction,
@@ -7,6 +7,7 @@ import {
 } from '../data'
 import type { Transaction, Account, Category } from '../data'
 import SearchableSelect from '../components/SearchableSelect'
+import MobileSheet from '../components/MobileSheet'
 
 type TxType = 'expense' | 'income' | 'transfer'
 
@@ -36,7 +37,7 @@ export default function Transactions() {
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   // dialog state — shared
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [txType, setTxType] = useState<TxType>('expense')
   const [amount, setAmount] = useState('')
@@ -105,7 +106,7 @@ export default function Transactions() {
     setFromAccountId(accounts[0]?.id ?? '')
     setToAccountId(accounts[1]?.id ?? accounts[0]?.id ?? '')
     setEditingTransferLegs(null)
-    dialogRef.current?.showModal()
+    setDialogOpen(true)
   }
 
   const openEdit = (t: Transaction) => {
@@ -134,7 +135,7 @@ export default function Transactions() {
       setEditingTransferLegs(null)
     }
 
-    dialogRef.current?.showModal()
+    setDialogOpen(true)
   }
 
   const handleTypeToggle = (next: TxType) => {
@@ -195,7 +196,7 @@ export default function Transactions() {
           await createTransaction(payload)
         }
       }
-      dialogRef.current?.close()
+      setDialogOpen(false)
       setLoading(true)
       await load()
     } catch (err: any) {
@@ -497,12 +498,7 @@ export default function Transactions() {
       )}
 
       {/* add / edit dialog */}
-      <dialog
-        ref={dialogRef}
-        onClick={e => { if (e.target === dialogRef.current) dialogRef.current.close() }}
-        className="rounded-lg shadow-lg p-6 w-full max-w-md m-auto fixed inset-0 backdrop:bg-black/40"
-      >
-        <h2 className="text-lg font-semibold mb-4">{dialogTitle}</h2>
+      <MobileSheet open={dialogOpen} onClose={() => setDialogOpen(false)} title={dialogTitle}>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* type toggle — locked while editing so kind can't be switched after the fact */}
           <div className="flex border rounded overflow-hidden w-fit">
@@ -527,6 +523,7 @@ export default function Transactions() {
               <input
                 id="tx-amount"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0.01"
                 required
@@ -632,14 +629,14 @@ export default function Transactions() {
             </button>
             <button
               type="button"
-              onClick={() => dialogRef.current?.close()}
+              onClick={() => setDialogOpen(false)}
               className="border px-4 py-3 rounded hover:bg-slate-50 active:bg-slate-100 flex-1"
             >
               Cancel
             </button>
           </div>
         </form>
-      </dialog>
+      </MobileSheet>
     </div>
   )
 }

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { listAccounts, listAccountBalances, createAccount, updateAccount, deleteAccount } from '../data'
 import type { Account } from '../data'
 import SearchableSelect from '../components/SearchableSelect'
+import MobileSheet from '../components/MobileSheet'
 
 const ACCOUNT_TYPES = ['checking', 'savings', 'credit_card', 'investment', 'cash', 'other'] as const
 
@@ -13,7 +14,7 @@ export default function Accounts() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [balances, setBalances] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -38,7 +39,7 @@ export default function Accounts() {
     setCurrency('USD')
     setStartingBalance(0)
     setDescription('')
-    dialogRef.current?.showModal()
+    setDialogOpen(true)
   }
 
   const openEdit = (a: Account) => {
@@ -48,7 +49,7 @@ export default function Accounts() {
     setCurrency(a.currency)
     setStartingBalance(a.starting_balance)
     setDescription(a.description ?? '')
-    dialogRef.current?.showModal()
+    setDialogOpen(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,7 +62,7 @@ export default function Accounts() {
       } else {
         await createAccount(payload)
       }
-      dialogRef.current?.close()
+      setDialogOpen(false)
       await load()
     } catch (err: any) {
       alert(err.message)
@@ -215,11 +216,11 @@ export default function Accounts() {
         </>
       )}
 
-      <dialog
-        ref={dialogRef}
-        className="rounded-lg shadow-lg p-6 w-full max-w-sm m-auto fixed inset-0 backdrop:bg-black/40"
+      <MobileSheet
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title={editingId ? 'Edit account' : 'Add account'}
       >
-        <h2 className="text-lg font-semibold mb-4">{editingId ? 'Edit account' : 'Add account'}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="acc-name">Name</label>
@@ -257,6 +258,7 @@ export default function Accounts() {
             <input
               id="acc-balance"
               type="number"
+              inputMode="decimal"
               step="any"
               value={startingBalance}
               onChange={e => setStartingBalance(parseFloat(e.target.value) || 0)}
@@ -283,14 +285,14 @@ export default function Accounts() {
             </button>
             <button
               type="button"
-              onClick={() => dialogRef.current?.close()}
+              onClick={() => setDialogOpen(false)}
               className="border px-4 py-3 rounded hover:bg-slate-50 active:bg-slate-100 flex-1"
             >
               Cancel
             </button>
           </div>
         </form>
-      </dialog>
+      </MobileSheet>
     </div>
   )
 }
