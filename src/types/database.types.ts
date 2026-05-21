@@ -110,6 +110,7 @@ export type Database = {
         Row: {
           color: string | null
           created_at: string
+          exclude_from_totals: boolean
           icon: string | null
           id: string
           kind: string
@@ -119,6 +120,7 @@ export type Database = {
         Insert: {
           color?: string | null
           created_at?: string
+          exclude_from_totals?: boolean | null
           icon?: string | null
           id?: string
           kind: string
@@ -128,6 +130,7 @@ export type Database = {
         Update: {
           color?: string | null
           created_at?: string
+          exclude_from_totals?: boolean | null
           icon?: string | null
           id?: string
           kind?: string
