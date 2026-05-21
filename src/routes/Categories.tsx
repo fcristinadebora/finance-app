@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { listCategories, createCategory, deleteCategory } from '../data'
+import { listCategories, createCategory, updateCategory, deleteCategory } from '../data'
 import type { Category } from '../data'
 import MobileSheet from '../components/MobileSheet'
 
-type KindFilter = 'all' | 'income' | 'expense'
+type KindFilter = 'all' | 'income' | 'expense' | 'excluded'
 
 export default function Categories() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -13,7 +13,9 @@ export default function Categories() {
 
   const [name, setName] = useState('')
   const [kind, setKind] = useState<'income' | 'expense'>('expense')
+  const [excludeFromTotals, setExcludeFromTotals] = useState(false)
   const [pending, setPending] = useState(false)
+  const [toggling, setToggling] = useState<Map<string, boolean>>(new Map())
 
   const load = () =>
     listCategories()
@@ -26,6 +28,7 @@ export default function Categories() {
   const openDialog = () => {
     setName('')
     setKind('expense')
+    setExcludeFromTotals(false)
     setDialogOpen(true)
   }
 
@@ -33,13 +36,29 @@ export default function Categories() {
     e.preventDefault()
     setPending(true)
     try {
-      await createCategory({ name, kind })
+      await createCategory({ name, kind, exclude_from_totals: excludeFromTotals })
       setDialogOpen(false)
       await load()
     } catch (err: any) {
       alert(err.message)
     } finally {
       setPending(false)
+    }
+  }
+
+  const handleToggleExclude = async (cat: Category) => {
+    setToggling(prev => new Map(prev).set(cat.id, true))
+    try {
+      await updateCategory(cat.id, { exclude_from_totals: !cat.exclude_from_totals })
+      await load()
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setToggling(prev => {
+        const next = new Map(prev)
+        next.delete(cat.id)
+        return next
+      })
     }
   }
 
@@ -53,7 +72,11 @@ export default function Categories() {
     }
   }
 
-  const visible = filter === 'all' ? categories : categories.filter(c => c.kind === filter)
+  const visible = filter === 'all'
+    ? categories
+    : filter === 'excluded'
+    ? categories.filter(c => c.exclude_from_totals)
+    : categories.filter(c => c.kind === filter)
 
   const filterBtn = (value: KindFilter, label: string) => (
     <button
@@ -72,6 +95,8 @@ export default function Categories() {
   const emptyMessage =
     filter === 'all'
       ? 'No categories yet. Add one to get started.'
+      : filter === 'excluded'
+      ? 'Nenhuma categoria excluída dos totais.'
       : `No ${filter} categories.`
 
   return (
@@ -90,6 +115,7 @@ export default function Categories() {
         {filterBtn('all', 'All')}
         {filterBtn('income', 'Income')}
         {filterBtn('expense', 'Expense')}
+        {filterBtn('excluded', 'Excluídos')}
       </div>
 
       {loading ? (
@@ -102,14 +128,40 @@ export default function Categories() {
             <tr className="border-b">
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Name</th>
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Kind</th>
+              <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Reporting</th>
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {visible.map(row => (
               <tr key={row.id} className="border-b last:border-0 hover:bg-slate-50">
-                <td className="py-3 font-medium">{row.name}</td>
+                <td className="py-3 font-medium">
+                  {row.exclude_from_totals && (
+                    <span className="text-slate-400 mr-1 text-xs">⊘</span>
+                  )}
+                  {row.name}
+                </td>
                 <td className="py-3 text-slate-600 capitalize">{row.kind}</td>
+                <td className="py-3">
+                  {(() => {
+                    const isSaving = toggling.get(row.id) ?? false
+                    return (
+                      <button
+                        onClick={() => handleToggleExclude(row)}
+                        disabled={isSaving}
+                        className={`text-xs font-medium px-2.5 py-1 rounded-full cursor-pointer active:opacity-70 transition-colors min-w-[72px] text-center ${
+                          isSaving
+                            ? 'bg-slate-100 text-slate-400 border border-slate-200'
+                            : row.exclude_from_totals
+                            ? 'bg-slate-100 text-slate-500 border border-slate-200'
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}
+                      >
+                        {isSaving ? '...' : row.exclude_from_totals ? 'Excluído' : 'Included'}
+                      </button>
+                    )
+                  })()}
+                </td>
                 <td className="py-3 text-right">
                   <button
                     onClick={() => handleDelete(row)}
@@ -157,6 +209,21 @@ export default function Categories() {
               ))}
             </div>
           </fieldset>
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={excludeFromTotals}
+              onChange={e => setExcludeFromTotals(e.target.checked)}
+              className="w-4 h-4 rounded"
+            />
+            <div>
+              <span className="text-sm font-medium">Excluir dos totais</span>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Poupanças, investimentos e outros movimentos financeiros que
+                não devem contar como despesa ou receita.
+              </p>
+            </div>
+          </label>
           <div className="flex gap-3 pt-2">
             <button
               type="submit"
