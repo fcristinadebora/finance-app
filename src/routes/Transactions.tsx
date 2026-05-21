@@ -313,7 +313,7 @@ export default function Transactions() {
         )}
       </div>
 
-      {/* table */}
+      {/* table / cards */}
       {loading ? (
         <p className="text-center text-slate-400 py-16">Loading…</p>
       ) : visible.length === 0 ? (
@@ -321,62 +321,101 @@ export default function Transactions() {
           {hasFilters ? 'No transactions match your filters.' : 'No transactions yet. Add one above.'}
         </p>
       ) : (
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Date</th>
-              <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Description</th>
-              <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Account</th>
-              <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Category</th>
-              <th className="text-xs uppercase text-slate-500 pb-2 font-medium text-right">Amount</th>
-              <th className="text-xs uppercase text-slate-500 pb-2 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody>
+        <>
+          {/* Desktop table */}
+          <table className="hidden md:table w-full text-left text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Date</th>
+                <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Description</th>
+                <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Account</th>
+                <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Category</th>
+                <th className="text-xs uppercase text-slate-500 pb-2 font-medium text-right">Amount</th>
+                <th className="text-xs uppercase text-slate-500 pb-2 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map(t => {
+                const acc = accountById[t.account_id]
+                const cat = categoryById[t.category_id ?? '']
+                const isTransfer = t.kind === 'transfer'
+                const pairLeg = isTransfer && t.transfer_pair_id ? txById[t.transfer_pair_id] : null
+                const pairAcc = pairLeg ? accountById[pairLeg.account_id] : null
+                const transferLabel = isTransfer
+                  ? (t.amount < 0 ? `→ ${pairAcc?.name ?? '—'}` : `← ${pairAcc?.name ?? '—'}`)
+                  : null
+                return (
+                  <tr
+                    key={t.id}
+                    onClick={() => openEdit(t)}
+                    className={`border-b last:border-0 hover:bg-slate-50 cursor-pointer ${isTransfer ? 'bg-slate-50/60' : ''}`}
+                  >
+                    <td className="py-3 text-slate-600 whitespace-nowrap">
+                      {format(new Date(t.occurred_on + 'T00:00:00'), 'MMM d, yyyy')}
+                    </td>
+                    <td className="py-3 font-medium">{t.description}</td>
+                    <td className="py-3 text-slate-600">{acc?.name ?? '—'}</td>
+                    <td className="py-3 text-slate-500">
+                      {isTransfer
+                        ? <span className="inline-flex items-center gap-1 text-xs font-medium bg-slate-200 text-slate-600 rounded px-1.5 py-0.5">{transferLabel}</span>
+                        : (cat?.name ?? '—')}
+                    </td>
+                    <td className={`py-3 text-right font-medium tabular-nums ${t.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {acc ? formatAmount(t.amount, acc.currency) : t.amount}
+                    </td>
+                    <td className="py-3 text-right">
+                      <button
+                        onClick={e => handleDelete(e, t)}
+                        className="text-slate-400 hover:text-red-600"
+                        aria-label="Delete transaction"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m2 0a1 1 0 00-1-1h-4a1 1 0 00-1 1H5" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+
+          {/* Mobile card list */}
+          <ul className="md:hidden">
             {visible.map(t => {
               const acc = accountById[t.account_id]
               const cat = categoryById[t.category_id ?? '']
               const isTransfer = t.kind === 'transfer'
-              const pairLeg = isTransfer && t.transfer_pair_id ? txById[t.transfer_pair_id] : null
-              const pairAcc = pairLeg ? accountById[pairLeg.account_id] : null
-              const transferLabel = isTransfer
-                ? (t.amount < 0 ? `→ ${pairAcc?.name ?? '—'}` : `← ${pairAcc?.name ?? '—'}`)
-                : null
+              const dotColor = isTransfer ? '#94a3b8' : (cat?.color ?? '#94a3b8')
               return (
-                <tr
+                <li
                   key={t.id}
                   onClick={() => openEdit(t)}
-                  className={`border-b last:border-0 hover:bg-slate-50 cursor-pointer ${isTransfer ? 'bg-slate-50/60' : ''}`}
+                  className="flex items-center justify-between p-4 bg-white border-b border-slate-100 last:border-0 active:bg-slate-50 cursor-pointer"
                 >
-                  <td className="py-3 text-slate-600 whitespace-nowrap">
-                    {format(new Date(t.occurred_on + 'T00:00:00'), 'MMM d, yyyy')}
-                  </td>
-                  <td className="py-3 font-medium">{t.description}</td>
-                  <td className="py-3 text-slate-600">{acc?.name ?? '—'}</td>
-                  <td className="py-3 text-slate-500">
-                    {isTransfer
-                      ? <span className="inline-flex items-center gap-1 text-xs font-medium bg-slate-200 text-slate-600 rounded px-1.5 py-0.5">{transferLabel}</span>
-                      : (cat?.name ?? '—')}
-                  </td>
-                  <td className={`py-3 text-right font-medium tabular-nums ${t.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {acc ? formatAmount(t.amount, acc.currency) : t.amount}
-                  </td>
-                  <td className="py-3 text-right">
-                    <button
-                      onClick={e => handleDelete(e, t)}
-                      className="text-slate-400 hover:text-red-600"
-                      aria-label="Delete transaction"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m2 0a1 1 0 00-1-1h-4a1 1 0 00-1 1H5" />
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: dotColor }}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 truncate">{t.description}</p>
+                      <p className="text-slate-500 text-sm">
+                        {format(new Date(t.occurred_on + 'T00:00:00'), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right ml-4 shrink-0">
+                    <p className={`font-semibold tabular-nums ${t.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {acc ? formatAmount(t.amount, acc.currency) : t.amount}
+                    </p>
+                    <p className="text-slate-500 text-sm">{acc?.name ?? '—'}</p>
+                  </div>
+                </li>
               )
             })}
-          </tbody>
-        </table>
+          </ul>
+        </>
       )}
 
       {/* add / edit dialog */}
