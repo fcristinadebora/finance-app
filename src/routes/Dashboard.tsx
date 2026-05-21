@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Chart, ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js'
+import { Chart, ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut, Bar } from 'react-chartjs-2'
-import { listAccounts, listAccountBalances, listCategories, listTransactions } from '../data'
-import type { Account, Category, Transaction } from '../data'
+import { listAccounts, listAccountBalances, listCategories, listTransactions, listBudgets } from '../data'
+import type { Account, Category, Transaction, Budget } from '../data'
 
-Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend)
+Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend)
 
 function firstOfMonthISO(date = new Date()) {
   const d = new Date(date)
@@ -52,6 +52,7 @@ export default function Dashboard() {
   const [balances, setBalances] = useState<Record<string, number>>({})
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [budgets, setBudgets] = useState<Budget[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -59,13 +60,15 @@ export default function Dashboard() {
       listAccounts(),
       listAccountBalances(),
       listCategories(),
-      listTransactions({ from: monthsAgoStart(5) }),
+      listTransactions({ from: monthsAgoStart(5), includeTransfers: true }),
+      listBudgets(),
     ])
-      .then(([accs, bals, cats, txs]) => {
+      .then(([accs, bals, cats, txs, buds]) => {
         setAccounts(accs)
         setBalances(bals)
         setCategories(cats)
         setTransactions(txs)
+        setBudgets(buds)
       })
       .catch(err => alert(err.message))
       .finally(() => setLoading(false))
@@ -76,6 +79,7 @@ export default function Dashboard() {
 
   const categoryById = Object.fromEntries(categories.map(c => [c.id, c]))
 
+  // ── 1. totalBalance ────────────────────────────────────────────────────────
   const totalBalance = Object.values(balances).reduce((s, n) => s + n, 0)
 
   const thisMonthStart = firstOfMonthISO()
@@ -84,6 +88,7 @@ export default function Dashboard() {
     t => t.occurred_on >= thisMonthStart && t.occurred_on <= thisMonthEnd,
   )
 
+  // ── 4 & 5. incomeThisMonth / expenseThisMonth ──────────────────────────────
   let incomeThisMonth = 0
   let expenseThisMonth = 0
   const spendByCategory: Record<string, number> = {}
@@ -100,7 +105,84 @@ export default function Dashboard() {
     }
   }
 
+  // ── 6. netThisMonth ────────────────────────────────────────────────────────
   const netThisMonth = incomeThisMonth - expenseThisMonth
+
+  // ── 2 & 3. balanceLastMonth / balanceTrend ─────────────────────────────────
+  const balanceLastMonth = totalBalance - netThisMonth
+  const balanceTrend = totalBalance - balanceLastMonth   // === netThisMonth
+
+  // ── 7. savingsRate ─────────────────────────────────────────────────────────
+  const savingsRate = incomeThisMonth === 0
+    ? 0
+    : Math.max(0, Math.round((netThisMonth / incomeThisMonth) * 100 * 10) / 10)
+
+  // ── 8. daysInMonth / daysElapsed / pctMonthElapsed ────────────────────────
+  const now = new Date()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const daysElapsed = now.getDate()
+  const pctMonthElapsed = Math.round((daysElapsed / daysInMonth) * 100 * 10) / 10
+
+  // ── 9. totalBudget ────────────────────────────────────────────────────────
+  const totalBudget = budgets.reduce((s, b) => s + b.monthly_limit, 0)
+
+  // ── 10. totalSpentOnBudgetedCategories ────────────────────────────────────
+  const budgetedCategoryIds = new Set(budgets.map(b => b.category_id))
+  const totalSpentOnBudgetedCategories = thisMonthTxs
+    .filter(t => t.kind !== 'transfer' && t.amount < 0 && t.category_id && budgetedCategoryIds.has(t.category_id))
+    .reduce((s, t) => s + Math.abs(t.amount), 0)
+
+  // ── 11. pctBudgetUsed ─────────────────────────────────────────────────────
+  const pctBudgetUsed = totalBudget === 0
+    ? 0
+    : Math.round((totalSpentOnBudgetedCategories / totalBudget) * 100 * 10) / 10
+
+  // ── 12. budgetRows ────────────────────────────────────────────────────────
+  const budgetRows = budgets
+    .map(b => {
+      const spent = spendByCategory[b.category_id] ?? 0
+      const pct = Math.min(200, b.monthly_limit === 0 ? 0 : (spent / b.monthly_limit) * 100)
+      const status: 'ok' | 'warning' | 'over' = pct >= 100 ? 'over' : pct >= 80 ? 'warning' : 'ok'
+      return {
+        categoryId: b.category_id,
+        categoryName: categoryById[b.category_id]?.name ?? b.category_id,
+        limit: b.monthly_limit,
+        spent,
+        pct,
+        status,
+      }
+    })
+    .sort((a, b) => b.pct - a.pct)
+
+  // ── 13. alertRows ─────────────────────────────────────────────────────────
+  const alertRows = budgetRows.filter(r => r.status === 'over' || r.status === 'warning')
+
+  // ── 14. balanceHistory ────────────────────────────────────────────────────
+  // monthNetByRecency[0] = current month, [5] = 5 months ago (transfers included)
+  const monthNetByRecency: number[] = []
+  for (let i = 0; i <= 5; i++) {
+    const { start, end } = getMonthBounds(i)
+    let net = 0
+    for (const t of transactions) {
+      if (t.occurred_on >= start && t.occurred_on <= end) net += t.amount
+    }
+    monthNetByRecency.push(net)
+  }
+
+  // Walk backwards from totalBalance; historyBalances[5] = most recent
+  const historyBalances: number[] = new Array(6)
+  historyBalances[5] = totalBalance
+  for (let i = 4; i >= 0; i--) {
+    historyBalances[i] = historyBalances[i + 1] - monthNetByRecency[4 - i]
+  }
+
+  // Oldest first: index 0 = 5 months ago, index 5 = current month
+  const balanceHistory: Array<{ label: string; balance: number }> = []
+  for (let i = 0; i <= 5; i++) {
+    balanceHistory.push({ label: getMonthBounds(5 - i).label, balance: historyBalances[i] })
+  }
+
+  // ── existing chart data (unchanged) ───────────────────────────────────────
 
   const monthlyTotals: MonthlyTotal[] = []
   for (let i = 5; i >= 0; i--) {
