@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      periods: {
+        Row: {
+          id: string
+          user_id: string
+          started_on: string
+          label: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          started_on: string
+          label?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          started_on?: string
+          label?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       accounts: {
         Row: {
           created_at: string

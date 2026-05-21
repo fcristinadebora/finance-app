@@ -8,6 +8,7 @@ import Categories from './routes/Categories'
 import Transactions from './routes/Transactions'
 import Budgets from './routes/Budgets'
 import Dashboard from './routes/Dashboard'
+import Periods from './routes/Periods'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="categories" element={<Categories />} />
           <Route path="transactions" element={<Transactions />} />
           <Route path="budgets" element={<Budgets />} />
+          <Route path="periods" element={<Periods />} />
         </Route>
       </Route>
     </Routes>

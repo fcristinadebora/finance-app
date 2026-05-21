@@ -35,6 +35,13 @@ const BudgetsIcon = ({ className }: IconProps) => (
   </svg>
 )
 
+const PeriodsIcon = ({ className }: IconProps) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+    <rect x="3" y="4" width="18" height="18" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16 2v4M8 2v4M3 10h18" />
+  </svg>
+)
+
 const LogoutIcon = ({ className }: IconProps) => (
   <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H9m4 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h6a2 2 0 012 2v1" />
@@ -47,6 +54,7 @@ const navLinks = [
   { to: '/categories', label: 'Categories', Icon: CategoriesIcon },
   { to: '/transactions', label: 'Transactions', Icon: TransactionsIcon },
   { to: '/budgets', label: 'Budgets', Icon: BudgetsIcon },
+  { to: '/periods', label: 'Periods', Icon: PeriodsIcon },
 ]
 
 const topActiveClass = 'text-slate-900 font-semibold border-b-2 border-slate-900'

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { Chart, ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut, Bar } from 'react-chartjs-2'
-import { listAccounts, listAccountBalances, listCategories, listTransactions, listBudgets } from '../data'
-import type { Account, Category, Transaction, Budget } from '../data'
+import { listAccounts, listAccountBalances, listCategories, listTransactions, listPeriods, getPeriodBounds } from '../data'
+import type { Account, Category, Transaction, Period } from '../data'
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend)
 
@@ -52,8 +52,11 @@ export default function Dashboard() {
   const [balances, setBalances] = useState<Record<string, number>>({})
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [budgets, setBudgets] = useState<Budget[]>([])
+  const [periods, setPeriods] = useState<Period[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Which period index is selected (0 = current / most-recent)
+  const [selectedPeriodIdx, setSelectedPeriodIdx] = useState(0)
 
   useEffect(() => {
     Promise.all([
@@ -61,14 +64,14 @@ export default function Dashboard() {
       listAccountBalances(),
       listCategories(),
       listTransactions({ from: monthsAgoStart(5), includeTransfers: true }),
-      listBudgets(),
+      listPeriods(),
     ])
-      .then(([accs, bals, cats, txs, buds]) => {
+      .then(([accs, bals, cats, txs, pers]) => {
         setAccounts(accs)
         setBalances(bals)
         setCategories(cats)
         setTransactions(txs)
-        setBudgets(buds)
+        setPeriods(pers)
       })
       .catch(err => alert(err.message))
       .finally(() => setLoading(false))
@@ -79,111 +82,45 @@ export default function Dashboard() {
 
   const categoryById = Object.fromEntries(categories.map(c => [c.id, c]))
 
-  // ── 1. totalBalance ────────────────────────────────────────────────────────
+  // ── total balance ─────────────────────────────────────────────────────────
   const totalBalance = Object.values(balances).reduce((s, n) => s + n, 0)
 
-  const thisMonthStart = firstOfMonthISO()
-  const thisMonthEnd = lastOfMonthISO()
-  const thisMonthTxs = transactions.filter(
-    t => t.occurred_on >= thisMonthStart && t.occurred_on <= thisMonthEnd,
+  // ── period bounds ─────────────────────────────────────────────────────────
+  const currentBounds = getPeriodBounds(periods, selectedPeriodIdx)
+  const { start: periodStart, end: periodEnd, label: periodLabel, isCurrent } = currentBounds
+
+  const hasPrev = selectedPeriodIdx < periods.length - 1
+  const hasNext = selectedPeriodIdx > 0
+
+  // ── period selector options ───────────────────────────────────────────────
+  const periodOptions = periods.length === 0
+    ? [{ label: getPeriodBounds([], 0).label, index: 0 }]
+    : periods.map((_, i) => ({ label: getPeriodBounds(periods, i).label, index: i }))
+
+  // ── income / expense for selected period ──────────────────────────────────
+  const periodTxs = transactions.filter(
+    t => t.occurred_on >= periodStart && t.occurred_on <= periodEnd,
   )
 
-  // ── 4 & 5. incomeThisMonth / expenseThisMonth ──────────────────────────────
-  let incomeThisMonth = 0
-  let expenseThisMonth = 0
+  let incomeThisPeriod = 0
+  let expenseThisPeriod = 0
   const spendByCategory: Record<string, number> = {}
 
-  for (const t of thisMonthTxs) {
+  for (const t of periodTxs) {
     if (t.kind === 'transfer') continue
     if (t.amount > 0) {
-      incomeThisMonth += t.amount
+      incomeThisPeriod += t.amount
     } else {
-      expenseThisMonth += Math.abs(t.amount)
+      expenseThisPeriod += Math.abs(t.amount)
       if (t.category_id) {
         spendByCategory[t.category_id] = (spendByCategory[t.category_id] ?? 0) + Math.abs(t.amount)
       }
     }
   }
 
-  // ── 6. netThisMonth ────────────────────────────────────────────────────────
-  const netThisMonth = incomeThisMonth - expenseThisMonth
+  const netThisPeriod = incomeThisPeriod - expenseThisPeriod
 
-  // ── 2 & 3. balanceLastMonth / balanceTrend ─────────────────────────────────
-  const balanceLastMonth = totalBalance - netThisMonth
-  const balanceTrend = totalBalance - balanceLastMonth   // === netThisMonth
-
-  // ── 7. savingsRate ─────────────────────────────────────────────────────────
-  const savingsRate = incomeThisMonth === 0
-    ? 0
-    : Math.max(0, Math.round((netThisMonth / incomeThisMonth) * 100 * 10) / 10)
-
-  // ── 8. daysInMonth / daysElapsed / pctMonthElapsed ────────────────────────
-  const now = new Date()
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-  const daysElapsed = now.getDate()
-  const pctMonthElapsed = Math.round((daysElapsed / daysInMonth) * 100 * 10) / 10
-
-  // ── 9. totalBudget ────────────────────────────────────────────────────────
-  const totalBudget = budgets.reduce((s, b) => s + b.monthly_limit, 0)
-
-  // ── 10. totalSpentOnBudgetedCategories ────────────────────────────────────
-  const budgetedCategoryIds = new Set(budgets.map(b => b.category_id))
-  const totalSpentOnBudgetedCategories = thisMonthTxs
-    .filter(t => t.kind !== 'transfer' && t.amount < 0 && t.category_id && budgetedCategoryIds.has(t.category_id))
-    .reduce((s, t) => s + Math.abs(t.amount), 0)
-
-  // ── 11. pctBudgetUsed ─────────────────────────────────────────────────────
-  const pctBudgetUsed = totalBudget === 0
-    ? 0
-    : Math.round((totalSpentOnBudgetedCategories / totalBudget) * 100 * 10) / 10
-
-  // ── 12. budgetRows ────────────────────────────────────────────────────────
-  const budgetRows = budgets
-    .map(b => {
-      const spent = spendByCategory[b.category_id] ?? 0
-      const pct = Math.min(200, b.monthly_limit === 0 ? 0 : (spent / b.monthly_limit) * 100)
-      const status: 'ok' | 'warning' | 'over' = pct >= 100 ? 'over' : pct >= 80 ? 'warning' : 'ok'
-      return {
-        categoryId: b.category_id,
-        categoryName: categoryById[b.category_id]?.name ?? b.category_id,
-        limit: b.monthly_limit,
-        spent,
-        pct,
-        status,
-      }
-    })
-    .sort((a, b) => b.pct - a.pct)
-
-  // ── 13. alertRows ─────────────────────────────────────────────────────────
-  const alertRows = budgetRows.filter(r => r.status === 'over' || r.status === 'warning')
-
-  // ── 14. balanceHistory ────────────────────────────────────────────────────
-  // monthNetByRecency[0] = current month, [5] = 5 months ago (transfers included)
-  const monthNetByRecency: number[] = []
-  for (let i = 0; i <= 5; i++) {
-    const { start, end } = getMonthBounds(i)
-    let net = 0
-    for (const t of transactions) {
-      if (t.occurred_on >= start && t.occurred_on <= end) net += t.amount
-    }
-    monthNetByRecency.push(net)
-  }
-
-  // Walk backwards from totalBalance; historyBalances[5] = most recent
-  const historyBalances: number[] = new Array(6)
-  historyBalances[5] = totalBalance
-  for (let i = 4; i >= 0; i--) {
-    historyBalances[i] = historyBalances[i + 1] - monthNetByRecency[4 - i]
-  }
-
-  // Oldest first: index 0 = 5 months ago, index 5 = current month
-  const balanceHistory: Array<{ label: string; balance: number }> = []
-  for (let i = 0; i <= 5; i++) {
-    balanceHistory.push({ label: getMonthBounds(5 - i).label, balance: historyBalances[i] })
-  }
-
-  // ── existing chart data (unchanged) ───────────────────────────────────────
-
+  // ── charts (still calendar-month based for history) ───────────────────────
   const monthlyTotals: MonthlyTotal[] = []
   for (let i = 5; i >= 0; i--) {
     const { start, end, label } = getMonthBounds(i)
@@ -258,29 +195,79 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* stats row */}
+
+      {/* ── Period selector ──────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => setSelectedPeriodIdx(i => i + 1)}
+          disabled={!hasPrev}
+          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Previous period"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <select
+          value={selectedPeriodIdx}
+          onChange={e => setSelectedPeriodIdx(Number(e.target.value))}
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer"
+        >
+          {periodOptions.map(opt => (
+            <option key={opt.index} value={opt.index}>
+              {opt.index === 0 ? `Current · ${opt.label}` : opt.label}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={() => setSelectedPeriodIdx(i => i - 1)}
+          disabled={!hasNext}
+          className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Next period"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        {!isCurrent && (
+          <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">
+            Closed period
+          </span>
+        )}
+
+        {periods.length === 0 && (
+          <span className="text-xs text-slate-400 italic">
+            No salary periods yet — using current calendar month
+          </span>
+        )}
+      </div>
+
+      {/* ── Stats row ────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="border rounded-lg p-4">
           <p className="text-xs uppercase text-slate-500">Total balance</p>
           <p className="text-2xl font-semibold mt-1">{fmt(totalBalance)}</p>
         </div>
         <div className="border rounded-lg p-4">
-          <p className="text-xs uppercase text-slate-500">Income this month</p>
-          <p className="text-2xl font-semibold mt-1">{fmt(incomeThisMonth)}</p>
+          <p className="text-xs uppercase text-slate-500">Income · {periodLabel}</p>
+          <p className="text-2xl font-semibold mt-1">{fmt(incomeThisPeriod)}</p>
         </div>
         <div className="border rounded-lg p-4">
-          <p className="text-xs uppercase text-slate-500">Expenses this month</p>
-          <p className="text-2xl font-semibold mt-1">{fmt(expenseThisMonth)}</p>
+          <p className="text-xs uppercase text-slate-500">Expenses · {periodLabel}</p>
+          <p className="text-2xl font-semibold mt-1">{fmt(expenseThisPeriod)}</p>
         </div>
         <div className="border rounded-lg p-4">
-          <p className="text-xs uppercase text-slate-500">Net this month</p>
-          <p className={`text-2xl font-semibold mt-1 ${netThisMonth >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-            {fmt(netThisMonth)}
+          <p className="text-xs uppercase text-slate-500">Net · {periodLabel}</p>
+          <p className={`text-2xl font-semibold mt-1 ${netThisPeriod >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+            {fmt(netThisPeriod)}
           </p>
         </div>
       </div>
 
-      {/* accounts section */}
+      {/* ── Accounts ─────────────────────────────────────────────────────── */}
       {(() => {
         const maxAbsBalance = Math.max(0, ...accounts.map(a => Math.abs(balances[a.id] ?? 0)))
         return (
@@ -318,13 +305,13 @@ export default function Dashboard() {
         )
       })()}
 
-      {/* chart row */}
+      {/* ── Chart row ────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="border rounded-lg p-4">
-          <p className="text-sm font-medium mb-3">Spending by category, this month</p>
+          <p className="text-sm font-medium mb-3">Spending by category · {periodLabel}</p>
           {Object.keys(spendByCategory).length === 0 ? (
             <div className="h-64 flex items-center justify-center">
-              <p className="text-slate-400 text-sm">No spending this month</p>
+              <p className="text-slate-400 text-sm">No spending for this period</p>
             </div>
           ) : (
             <div className="h-64">
