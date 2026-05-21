@@ -33,6 +33,7 @@ export default function Transactions() {
   const [filterAccount, setFilterAccount] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [showTransfers, setShowTransfers] = useState(true)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   // dialog state — shared
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -79,6 +80,9 @@ export default function Transactions() {
   const txById = buildMap(transactions)
 
   const hasFilters = !!(fromDate || toDate || filterAccount || filterCategory)
+  const activeFilterCount =
+    [fromDate, toDate, filterAccount, filterCategory].filter(Boolean).length +
+    (!showTransfers ? 1 : 0)
 
   const visible = transactions.filter(t => {
     if (!showTransfers && t.kind === 'transfer') return false
@@ -258,8 +262,82 @@ export default function Transactions() {
         </div>
       )}
 
-      {/* filter row */}
-      <div className="flex flex-wrap gap-3 items-end p-3 bg-slate-50 rounded">
+      {/* filter row — mobile: collapsible panel */}
+      <div className="md:hidden">
+        <button
+          onClick={() => setFiltersOpen(o => !o)}
+          className="flex items-center gap-2 px-3 py-2 border rounded text-sm text-slate-700 bg-slate-50 hover:bg-slate-100 active:bg-slate-200"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+          </svg>
+          <span>Filters</span>
+          {activeFilterCount > 0 && (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-900 text-white text-xs font-semibold">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+
+        <div className={`transition-all duration-200 overflow-hidden ${filtersOpen ? 'max-h-96' : 'max-h-0'}`}>
+          <div className="flex flex-col gap-3 p-3 bg-slate-50 rounded mt-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-slate-500">From</label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={e => setFromDate(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-slate-500">To</label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={e => setToDate(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-slate-500">Account</label>
+              <SearchableSelect
+                value={filterAccount}
+                onChange={setFilterAccount}
+                options={[{ value: '', label: 'All accounts' }, ...accounts.map(a => ({ value: a.id, label: a.name }))]}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-slate-500">Category</label>
+              <SearchableSelect
+                value={filterCategory}
+                onChange={setFilterCategory}
+                options={[{ value: '', label: 'All categories' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
+              />
+            </div>
+            <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showTransfers}
+                onChange={e => setShowTransfers(e.target.checked)}
+                className="rounded"
+              />
+              Show transfers
+            </label>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={() => { setFromDate(''); setToDate(''); setFilterAccount(''); setFilterCategory(''); setShowTransfers(true) }}
+                className="w-full border rounded px-3 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* filter row — desktop: horizontal layout */}
+      <div className="hidden md:flex flex-wrap gap-3 items-end p-3 bg-slate-50 rounded">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500">From</label>
           <input
