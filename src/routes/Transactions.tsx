@@ -102,6 +102,10 @@ export default function Transactions() {
   const categoryById = buildMap(categories)
   const txById = buildMap(transactions)
 
+  const excludedCatIds = new Set(
+    categories.filter(c => c.exclude_from_totals).map(c => c.id)
+  )
+
   const hasFilters = !!(fromDate || toDate || filterAccount || filterCategory)
   const activeFilterCount =
     [fromDate, toDate, filterAccount, filterCategory].filter(Boolean).length +
@@ -468,7 +472,7 @@ export default function Transactions() {
                     <td className="py-3 text-slate-500">
                       {isTransfer
                         ? <span className="inline-flex items-center gap-1 text-xs font-medium bg-slate-200 text-slate-600 rounded px-1.5 py-0.5">{transferLabel}</span>
-                        : (cat?.name ?? '—')}
+                        : <>{cat?.name ?? '—'}{cat && excludedCatIds.has(cat.id) && <span className="ml-1 text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">excluído</span>}</>}
                     </td>
                     <td className={`py-3 text-right font-medium tabular-nums ${t.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                       {acc ? formatAmount(t.amount, acc.currency) : t.amount}
@@ -512,6 +516,7 @@ export default function Transactions() {
                       <p className="font-semibold text-slate-900 truncate">{t.description}</p>
                       <p className="text-slate-500 text-sm">
                         {format(new Date(t.occurred_on + 'T00:00:00'), 'MMM d, yyyy')}
+                        {cat && <> · {cat.name}{excludedCatIds.has(cat.id) && <span className="ml-1 text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">excluído</span>}</>}
                       </p>
                     </div>
                   </div>

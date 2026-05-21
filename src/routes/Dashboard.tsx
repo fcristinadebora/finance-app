@@ -82,6 +82,10 @@ export default function Dashboard() {
 
   const categoryById = Object.fromEntries(categories.map(c => [c.id, c]))
 
+  const excludedCatIds = new Set(
+    categories.filter(c => c.exclude_from_totals).map(c => c.id)
+  )
+
   // ── total balance ─────────────────────────────────────────────────────────
   const totalBalance = Object.values(balances).reduce((s, n) => s + n, 0)
 
@@ -108,6 +112,7 @@ export default function Dashboard() {
 
   for (const t of periodTxs) {
     if (t.kind === 'transfer') continue
+    if (t.category_id && excludedCatIds.has(t.category_id)) continue
     if (t.amount > 0) {
       incomeThisPeriod += t.amount
     } else {
@@ -128,6 +133,7 @@ export default function Dashboard() {
     for (const t of transactions) {
       if (t.occurred_on < start || t.occurred_on > end) continue
       if (t.kind === 'transfer') continue
+      if (t.category_id && excludedCatIds.has(t.category_id)) continue
       if (t.amount > 0) income += t.amount
       else expense += Math.abs(t.amount)
     }

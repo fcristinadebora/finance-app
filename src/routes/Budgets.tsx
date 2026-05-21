@@ -51,9 +51,13 @@ export default function Budgets() {
       setCategories(cats)
       setCurrency(accs[0]?.currency ?? 'USD')
 
+      const excludedCatIds = new Set(
+        cats.filter(c => c.exclude_from_totals).map(c => c.id)
+      )
       const spend: Record<string, number> = {}
       for (const t of txs) {
         if (t.kind === 'transfer') continue
+        if (t.category_id && excludedCatIds.has(t.category_id)) continue
         if (t.amount < 0 && t.category_id) {
           spend[t.category_id] = (spend[t.category_id] ?? 0) + Math.abs(t.amount)
         }
