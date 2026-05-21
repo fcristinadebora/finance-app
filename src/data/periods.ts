@@ -4,6 +4,11 @@ import type { Database } from '../types/database.types'
 export type Period = Database['public']['Tables']['periods']['Row']
 export type PeriodInsert = Database['public']['Tables']['periods']['Insert']
 
+export type PeriodAccountSnapshot =
+  Database['public']['Tables']['period_account_snapshots']['Row'] & {
+    accounts: { name: string; currency: string } | null
+  }
+
 /** All periods for the current user, newest first. */
 export async function listPeriods(): Promise<Period[]> {
   const { data, error } = await supabase
@@ -51,6 +56,15 @@ export async function updatePeriod(
 export async function deletePeriod(id: string): Promise<void> {
   const { error } = await supabase.from('periods').delete().eq('id', id)
   if (error) throw error
+}
+
+/** All per-account balance snapshots, joined with account name/currency. */
+export async function listPeriodAccountSnapshots(): Promise<PeriodAccountSnapshot[]> {
+  const { data, error } = await supabase
+    .from('period_account_snapshots')
+    .select('*, accounts(name, currency)')
+  if (error) throw error
+  return data as PeriodAccountSnapshot[]
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

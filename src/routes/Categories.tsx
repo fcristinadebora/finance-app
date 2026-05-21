@@ -14,6 +14,7 @@ export default function Categories() {
   const [name, setName] = useState('')
   const [kind, setKind] = useState<'income' | 'expense'>('expense')
   const [excludeFromTotals, setExcludeFromTotals] = useState(false)
+  const [isSavings, setIsSavings] = useState(false)
   const [pending, setPending] = useState(false)
   const [toggling, setToggling] = useState<Map<string, boolean>>(new Map())
 
@@ -29,6 +30,7 @@ export default function Categories() {
     setName('')
     setKind('expense')
     setExcludeFromTotals(false)
+    setIsSavings(false)
     setDialogOpen(true)
   }
 
@@ -36,7 +38,7 @@ export default function Categories() {
     e.preventDefault()
     setPending(true)
     try {
-      await createCategory({ name, kind, exclude_from_totals: excludeFromTotals })
+      await createCategory({ name, kind, exclude_from_totals: excludeFromTotals, is_savings: isSavings })
       setDialogOpen(false)
       await load()
     } catch (err: any) {
@@ -47,18 +49,26 @@ export default function Categories() {
   }
 
   const handleToggleExclude = async (cat: Category) => {
-    setToggling(prev => new Map(prev).set(cat.id, true))
+    setToggling(prev => new Map(prev).set(cat.id + '_excl', true))
     try {
       await updateCategory(cat.id, { exclude_from_totals: !cat.exclude_from_totals })
       await load()
     } catch (err: any) {
       alert(err.message)
     } finally {
-      setToggling(prev => {
-        const next = new Map(prev)
-        next.delete(cat.id)
-        return next
-      })
+      setToggling(prev => { const next = new Map(prev); next.delete(cat.id + '_excl'); return next })
+    }
+  }
+
+  const handleToggleSavings = async (cat: Category) => {
+    setToggling(prev => new Map(prev).set(cat.id + '_sav', true))
+    try {
+      await updateCategory(cat.id, { is_savings: !cat.is_savings })
+      await load()
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setToggling(prev => { const next = new Map(prev); next.delete(cat.id + '_sav'); return next })
     }
   }
 
@@ -129,6 +139,7 @@ export default function Categories() {
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Name</th>
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Kind</th>
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Reporting</th>
+              <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Savings</th>
               <th className="text-xs uppercase text-slate-500 pb-2 font-medium"></th>
             </tr>
           </thead>
@@ -139,29 +150,57 @@ export default function Categories() {
                   {row.exclude_from_totals && (
                     <span className="text-slate-400 mr-1 text-xs">⊘</span>
                   )}
+                  {row.is_savings && (
+                    <span className="text-blue-400 mr-1 text-xs">🏦</span>
+                  )}
                   {row.name}
                 </td>
                 <td className="py-3 text-slate-600 capitalize">{row.kind}</td>
+
+                {/* exclude from totals toggle */}
                 <td className="py-3">
                   {(() => {
-                    const isSaving = toggling.get(row.id) ?? false
+                    const busy = toggling.get(row.id + '_excl') ?? false
                     return (
                       <button
                         onClick={() => handleToggleExclude(row)}
-                        disabled={isSaving}
+                        disabled={busy}
                         className={`text-xs font-medium px-2.5 py-1 rounded-full cursor-pointer active:opacity-70 transition-colors min-w-[72px] text-center ${
-                          isSaving
+                          busy
                             ? 'bg-slate-100 text-slate-400 border border-slate-200'
                             : row.exclude_from_totals
                             ? 'bg-slate-100 text-slate-500 border border-slate-200'
                             : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                         }`}
                       >
-                        {isSaving ? '...' : row.exclude_from_totals ? 'Excluído' : 'Included'}
+                        {busy ? '...' : row.exclude_from_totals ? 'Excluído' : 'Included'}
                       </button>
                     )
                   })()}
                 </td>
+
+                {/* is_savings toggle */}
+                <td className="py-3">
+                  {(() => {
+                    const busy = toggling.get(row.id + '_sav') ?? false
+                    return (
+                      <button
+                        onClick={() => handleToggleSavings(row)}
+                        disabled={busy}
+                        className={`text-xs font-medium px-2.5 py-1 rounded-full cursor-pointer active:opacity-70 transition-colors min-w-[60px] text-center ${
+                          busy
+                            ? 'bg-slate-100 text-slate-400 border border-slate-200'
+                            : row.is_savings
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                            : 'bg-slate-50 text-slate-400 border border-slate-200'
+                        }`}
+                      >
+                        {busy ? '...' : row.is_savings ? 'Savings' : 'No'}
+                      </button>
+                    )
+                  })()}
+                </td>
+
                 <td className="py-3 text-right">
                   <button
                     onClick={() => handleDelete(row)}
@@ -221,6 +260,20 @@ export default function Categories() {
               <p className="text-xs text-slate-500 mt-0.5">
                 Poupanças, investimentos e outros movimentos financeiros que
                 não devem contar como despesa ou receita.
+              </p>
+            </div>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isSavings}
+              onChange={e => setIsSavings(e.target.checked)}
+              className="w-4 h-4 rounded"
+            />
+            <div>
+              <span className="text-sm font-medium">Savings</span>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Transactions in this category count towards the savings column in period history.
               </p>
             </div>
           </label>

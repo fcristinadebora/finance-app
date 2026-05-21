@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
-import { listAccounts, listAccountBalances, createAccount, updateAccount, deleteAccount } from '../data'
-import type { Account } from '../data'
+import {
+  listAccounts, listAccountBalances, createAccount, updateAccount, deleteAccount,
+  listPeriods, listPeriodAccountSnapshots,
+} from '../data'
+import type { Account, Period, PeriodAccountSnapshot } from '../data'
 import SearchableSelect from '../components/SearchableSelect'
 import MobileSheet from '../components/MobileSheet'
 
@@ -13,6 +16,8 @@ function formatBalance(amount: number, currency: string) {
 export default function Accounts() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [balances, setBalances] = useState<Record<string, number>>({})
+  const [periods, setPeriods] = useState<Period[]>([])
+  const [snapshots, setSnapshots] = useState<PeriodAccountSnapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -25,10 +30,42 @@ export default function Accounts() {
   const [pending, setPending] = useState(false)
 
   const load = () =>
-    Promise.all([listAccounts(), listAccountBalances()])
-      .then(([accs, bals]) => { setAccounts(accs); setBalances(bals) })
+    Promise.all([listAccounts(), listAccountBalances(), listPeriods(), listPeriodAccountSnapshots()])
+      .then(([accs, bals, pers, snaps]) => {
+        setAccounts(accs)
+        setBalances(bals)
+        setPeriods(pers)
+        setSnapshots(snaps)
+      })
       .catch(err => alert(err.message))
       .finally(() => setLoading(false))
+
+  // Balance at end of the last closed period (periods[1] — index 0 is the current open one)
+  const prevPeriodId = periods.length > 1 ? periods[1].id : null
+  const prevBalances: Record<string, number> = {}
+  for (const s of snapshots) {
+    if (s.period_id === prevPeriodId) prevBalances[s.account_id] = s.balance
+  }
+
+  function periodDelta(accountId: string, currentBalance: number, currency: string) {
+    const prev = prevBalances[accountId]
+    if (prev == null) return null
+    const abs = currentBalance - prev
+    const pct = prev !== 0 ? (abs / Math.abs(prev)) * 100 : null
+    return { abs, pct, currency }
+  }
+
+  function DeltaTag({ accountId, balance, currency }: { accountId: string; balance: number; currency: string }) {
+    const d = periodDelta(accountId, balance, currency)
+    if (!d) return <span className="text-slate-300 text-xs">—</span>
+    const up = d.abs >= 0
+    return (
+      <span className={`text-xs tabular-nums ${up ? 'text-emerald-600' : 'text-red-500'}`}>
+        {up ? '▲' : '▼'} {formatBalance(Math.abs(d.abs), d.currency)}
+        {d.pct != null && <> · {Math.abs(d.pct).toFixed(1)}%</>}
+      </span>
+    )
+  }
 
   useEffect(() => { load() }, [])
 
@@ -109,6 +146,7 @@ export default function Accounts() {
                 <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Currency</th>
                 <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Starting balance</th>
                 <th className="text-xs uppercase text-slate-500 pb-2 font-medium">Current balance</th>
+                <th className="text-xs uppercase text-slate-500 pb-2 font-medium">vs prev period</th>
                 <th className="text-xs uppercase text-slate-500 pb-2 font-medium"></th>
               </tr>
             </thead>
@@ -145,6 +183,9 @@ export default function Accounts() {
                     (balances[row.id] ?? 0) < 0 ? 'text-red-600' : ''
                   }`}>
                     {formatBalance(balances[row.id] ?? 0, row.currency)}
+                  </td>
+                  <td className="py-3">
+                    <DeltaTag accountId={row.id} balance={balances[row.id] ?? 0} currency={row.currency} />
                   </td>
                   <td className="py-3 text-right">
                     <button
@@ -184,6 +225,9 @@ export default function Accounts() {
                       }`}>
                         {formatBalance(balance, row.currency)}
                       </p>
+                      <div className="mt-0.5">
+                        <DeltaTag accountId={row.id} balance={balance} currency={row.currency} />
+                      </div>
                       <span className="inline-block text-xs font-medium bg-slate-100 text-slate-600 rounded-full px-2.5 py-0.5 capitalize mt-1">
                         {row.type.replace('_', ' ')}
                       </span>

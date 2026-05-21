@@ -21,6 +21,10 @@ export type Database = {
           started_on: string
           label: string | null
           created_at: string
+          total_balance: number | null
+          expenses: number | null
+          incomes: number | null
+          savings: number | null
         }
         Insert: {
           id?: string
@@ -28,6 +32,10 @@ export type Database = {
           started_on: string
           label?: string | null
           created_at?: string
+          total_balance?: number | null
+          expenses?: number | null
+          incomes?: number | null
+          savings?: number | null
         }
         Update: {
           id?: string
@@ -35,8 +43,54 @@ export type Database = {
           started_on?: string
           label?: string | null
           created_at?: string
+          total_balance?: number | null
+          expenses?: number | null
+          incomes?: number | null
+          savings?: number | null
         }
         Relationships: []
+      }
+      period_account_snapshots: {
+        Row: {
+          id: string
+          period_id: string
+          account_id: string
+          user_id: string
+          balance: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          period_id: string
+          account_id: string
+          user_id: string
+          balance: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          period_id?: string
+          account_id?: string
+          user_id?: string
+          balance?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "period_account_snapshots_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "period_account_snapshots_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       accounts: {
         Row: {
@@ -111,6 +165,7 @@ export type Database = {
           color: string | null
           created_at: string
           exclude_from_totals: boolean
+          is_savings: boolean
           icon: string | null
           id: string
           kind: string
@@ -121,6 +176,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           exclude_from_totals?: boolean | null
+          is_savings?: boolean | null
           icon?: string | null
           id?: string
           kind: string
@@ -131,6 +187,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           exclude_from_totals?: boolean | null
+          is_savings?: boolean | null
           icon?: string | null
           id?: string
           kind?: string
