@@ -66,7 +66,7 @@ export default function Layout() {
           {/* desktop: text button */}
           <button
             onClick={() => signOut()}
-            className="hidden md:inline-flex bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 text-sm"
+            className="hidden md:inline-flex bg-slate-900 text-white px-4 py-3 rounded hover:bg-slate-800 active:brightness-90 text-sm"
           >
             Log out
           </button>
@@ -74,7 +74,7 @@ export default function Layout() {
           <button
             onClick={() => signOut()}
             aria-label="Log out"
-            className="md:hidden text-slate-500 hover:text-slate-900 p-2 -mr-2"
+            className="md:hidden text-slate-500 hover:text-slate-900 active:bg-slate-100 p-3 -mr-3 rounded-lg"
           >
             <LogoutIcon className="w-5 h-5" />
           </button>
@@ -112,7 +112,7 @@ export default function Layout() {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center justify-center gap-1 py-2 text-[11px] leading-none ${
+              `flex-1 flex flex-col items-center justify-center gap-1 py-3 text-[11px] leading-none active:bg-slate-100 ${
                 isActive ? 'text-slate-900' : 'text-slate-500'
               }`
             }

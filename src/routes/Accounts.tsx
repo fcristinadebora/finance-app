@@ -87,7 +87,7 @@ export default function Accounts() {
         <h1 className="text-2xl font-semibold">Accounts</h1>
         <button
           onClick={openAdd}
-          className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 text-sm"
+          className="bg-slate-900 text-white px-4 py-3 rounded hover:bg-slate-800 active:brightness-90 text-sm"
         >
           Add account
         </button>
@@ -148,7 +148,7 @@ export default function Accounts() {
                   <td className="py-3 text-right">
                     <button
                       onClick={e => handleDelete(e, row)}
-                      className="text-slate-400 hover:text-red-600 text-xs"
+                      className="inline-flex items-center justify-center p-3 rounded-lg text-slate-400 hover:text-red-600 active:bg-slate-100"
                       aria-label="Delete account"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -277,14 +277,14 @@ export default function Accounts() {
             <button
               type="submit"
               disabled={pending}
-              className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 disabled:opacity-50 flex-1"
+              className="bg-slate-900 text-white px-4 py-3 rounded hover:bg-slate-800 active:brightness-90 disabled:opacity-50 flex-1"
             >
               {pending ? 'Saving…' : 'Save'}
             </button>
             <button
               type="button"
               onClick={() => dialogRef.current?.close()}
-              className="border px-4 py-2 rounded hover:bg-slate-50 flex-1"
+              className="border px-4 py-3 rounded hover:bg-slate-50 active:bg-slate-100 flex-1"
             >
               Cancel
             </button>

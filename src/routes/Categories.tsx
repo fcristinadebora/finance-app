@@ -58,10 +58,10 @@ export default function Categories() {
     <button
       key={value}
       onClick={() => setFilter(value)}
-      className={`px-3 py-1.5 rounded text-sm ${
+      className={`px-3 min-h-[44px] rounded text-sm ${
         filter === value
-          ? 'bg-slate-900 text-white'
-          : 'border text-slate-700 hover:bg-slate-50'
+          ? 'bg-slate-900 text-white active:brightness-90'
+          : 'border text-slate-700 hover:bg-slate-50 active:bg-slate-100'
       }`}
     >
       {label}
@@ -79,7 +79,7 @@ export default function Categories() {
         <h1 className="text-2xl font-semibold">Categories</h1>
         <button
           onClick={openDialog}
-          className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 text-sm"
+          className="bg-slate-900 text-white px-4 py-3 rounded hover:bg-slate-800 active:brightness-90 text-sm"
         >
           Add category
         </button>
@@ -112,7 +112,7 @@ export default function Categories() {
                 <td className="py-3 text-right">
                   <button
                     onClick={() => handleDelete(row)}
-                    className="text-slate-400 hover:text-red-600"
+                    className="inline-flex items-center justify-center p-3 rounded-lg text-slate-400 hover:text-red-600 active:bg-slate-100"
                     aria-label="Delete category"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -165,14 +165,14 @@ export default function Categories() {
             <button
               type="submit"
               disabled={pending}
-              className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 disabled:opacity-50 flex-1"
+              className="bg-slate-900 text-white px-4 py-3 rounded hover:bg-slate-800 active:brightness-90 disabled:opacity-50 flex-1"
             >
               {pending ? 'Saving…' : 'Save'}
             </button>
             <button
               type="button"
               onClick={() => dialogRef.current?.close()}
-              className="border px-4 py-2 rounded hover:bg-slate-50 flex-1"
+              className="border px-4 py-3 rounded hover:bg-slate-50 active:bg-slate-100 flex-1"
             >
               Cancel
             </button>
