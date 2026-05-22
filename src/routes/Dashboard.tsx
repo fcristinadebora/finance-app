@@ -518,6 +518,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   const [selectedPeriodIdx, setSelectedPeriodIdx] = useState(0)
+  const [showIncomeBreakdown, setShowIncomeBreakdown] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -565,19 +566,41 @@ export default function Dashboard() {
   let incomeThisPeriod = 0
   let expenseThisPeriod = 0
   const spendByCategory: Record<string, number> = {}
+  const incomeByCategory: Record<string, number> = {}
+  const incomeByDescription: Record<string, number> = {}
 
   for (const t of periodTxs) {
     if (t.kind === 'transfer') continue
     if (t.category_id && excludedCatIds.has(t.category_id)) continue
-    if (t.amount > 0) {
+
+    const cat = t.category_id ? categoryById[t.category_id] : null
+
+    // Income: use category kind when available, otherwise fall back to sign
+    if (cat?.kind === 'income') {
       incomeThisPeriod += t.amount
-    } else {
+      incomeByCategory[cat.id] = (incomeByCategory[cat.id] ?? 0) + t.amount
+    } else if (!cat && t.amount > 0) {
+      incomeThisPeriod += t.amount
+      incomeByDescription[t.description] = (incomeByDescription[t.description] ?? 0) + t.amount
+    }
+
+    // Expenses: always sign-based, category type ignored
+    if (t.amount < 0) {
       expenseThisPeriod += Math.abs(t.amount)
       if (t.category_id) {
         spendByCategory[t.category_id] = (spendByCategory[t.category_id] ?? 0) + Math.abs(t.amount)
       }
     }
   }
+
+  // Merge into a flat list sorted by amount desc
+  const incomeBreakdown: { label: string; amount: number }[] = [
+    ...Object.entries(incomeByCategory).map(([id, amount]) => ({
+      label: categoryById[id]?.name ?? 'Uncategorised',
+      amount,
+    })),
+    ...Object.entries(incomeByDescription).map(([label, amount]) => ({ label, amount })),
+  ].sort((a, b) => b.amount - a.amount)
 
   const netThisPeriod = incomeThisPeriod - expenseThisPeriod
 
@@ -590,8 +613,10 @@ export default function Dashboard() {
       if (t.occurred_on < start || t.occurred_on > end) continue
       if (t.kind === 'transfer') continue
       if (t.category_id && excludedCatIds.has(t.category_id)) continue
-      if (t.amount > 0) income += t.amount
-      else expense += Math.abs(t.amount)
+      const cat = t.category_id ? categoryById[t.category_id] : null
+      if (cat?.kind === 'income') income += t.amount
+      else if (!cat && t.amount > 0) income += t.amount
+      if (t.amount < 0) expense += Math.abs(t.amount)
     }
     monthlyTotals.push({ label, income, expense })
   }
@@ -755,10 +780,26 @@ export default function Dashboard() {
             })()}
 
             {/* income */}
-            <div className="border rounded-lg p-4">
+            <div
+              className="border rounded-lg p-4 relative cursor-default"
+              onMouseEnter={() => setShowIncomeBreakdown(true)}
+              onMouseLeave={() => setShowIncomeBreakdown(false)}
+            >
               <p className="text-xs uppercase text-slate-500">Income · {periodLabel}</p>
               <p className="text-2xl font-semibold mt-1">{fmt(incomeThisPeriod)}</p>
               <TendencyLine current={incomeThisPeriod} prev={prevPeriod?.incomes ?? null} />
+
+              {showIncomeBreakdown && incomeBreakdown.length > 0 && (
+                <div className="absolute left-0 top-full mt-1.5 z-20 w-56 bg-white border rounded-lg shadow-lg py-2 px-3 space-y-1.5">
+                  <p className="text-[10px] uppercase text-slate-400 font-medium pb-1">Sources</p>
+                  {incomeBreakdown.map(({ label, amount }) => (
+                    <div key={label} className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-slate-600 truncate">{label}</span>
+                      <span className="text-xs tabular-nums font-medium text-emerald-600 shrink-0">{fmt(amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* expenses */}

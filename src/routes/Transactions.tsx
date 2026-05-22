@@ -37,6 +37,7 @@ export default function Transactions() {
   const [toDate, setToDate] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
+  const [filterDirection, setFilterDirection] = useState<'' | 'income' | 'expense'>('')
   const [showTransfers, setShowTransfers] = useState(true)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
@@ -113,9 +114,9 @@ export default function Transactions() {
     categories.filter(c => c.exclude_from_totals).map(c => c.id)
   )
 
-  const hasFilters = !!(fromDate || toDate || filterAccount || filterCategory)
+  const hasFilters = !!(fromDate || toDate || filterAccount || filterCategory || filterDirection)
   const activeFilterCount =
-    [fromDate, toDate, filterAccount, filterCategory].filter(Boolean).length +
+    [fromDate, toDate, filterAccount, filterCategory, filterDirection].filter(Boolean).length +
     (!showTransfers ? 1 : 0)
 
   const visible = transactions.filter(t => {
@@ -124,6 +125,8 @@ export default function Transactions() {
     if (toDate && t.occurred_on > toDate) return false
     if (filterAccount && t.account_id !== filterAccount) return false
     if (filterCategory && t.category_id !== filterCategory) return false
+    if (filterDirection === 'income' && t.amount < 0) return false
+    if (filterDirection === 'expense' && t.amount >= 0) return false
     return true
   })
 
@@ -362,6 +365,21 @@ export default function Transactions() {
                 options={[{ value: '', label: 'All categories' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
               />
             </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-slate-500">Type</label>
+              <div className="flex border rounded overflow-hidden text-sm">
+                {(['', 'income', 'expense'] as const).map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setFilterDirection(d)}
+                    className={`flex-1 min-h-[36px] capitalize ${filterDirection === d ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'}`}
+                  >
+                    {d === '' ? 'All' : d}
+                  </button>
+                ))}
+              </div>
+            </div>
             <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -373,7 +391,7 @@ export default function Transactions() {
             </label>
             {activeFilterCount > 0 && (
               <button
-                onClick={() => { setFromDate(''); setToDate(''); setFilterAccount(''); setFilterCategory(''); setShowTransfers(true) }}
+                onClick={() => { setFromDate(''); setToDate(''); setFilterAccount(''); setFilterCategory(''); setFilterDirection(''); setShowTransfers(true) }}
                 className="w-full border rounded px-3 py-3 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100"
               >
                 Clear filters
@@ -419,6 +437,21 @@ export default function Transactions() {
             options={[{ value: '', label: 'All categories' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
           />
         </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-slate-500">Type</label>
+          <div className="flex border rounded overflow-hidden text-sm">
+            {(['', 'income', 'expense'] as const).map(d => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setFilterDirection(d)}
+                className={`px-3 min-h-[34px] capitalize ${filterDirection === d ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+              >
+                {d === '' ? 'All' : d}
+              </button>
+            ))}
+          </div>
+        </div>
         <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer select-none">
           <input
             type="checkbox"
@@ -430,7 +463,7 @@ export default function Transactions() {
         </label>
         {hasFilters && (
           <button
-            onClick={() => { setFromDate(''); setToDate(''); setFilterAccount(''); setFilterCategory('') }}
+            onClick={() => { setFromDate(''); setToDate(''); setFilterAccount(''); setFilterCategory(''); setFilterDirection('') }}
             className="border rounded px-2 min-h-[44px] text-sm text-slate-700 hover:bg-white active:bg-slate-100"
           >
             Clear filters
