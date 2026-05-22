@@ -186,13 +186,20 @@ export default function ShareView() {
   const [wrongPassword, setWrongPassword] = useState(false)
   const [expandedParticipant, setExpandedParticipant] = useState<string | null>(null)
 
+  const sessionKey = token ? `share-pw-${token}` : null
+
   useEffect(() => {
     if (!token) { setNotFound(true); setLoadingMeta(false); return }
     getShareMeta(token)
       .then(data => {
         if (!data) { setNotFound(true); return }
         setMeta(data)
-        if (!data.requires_password) fetchShare()
+        if (!data.requires_password) {
+          fetchShare()
+        } else {
+          const saved = sessionStorage.getItem(`share-pw-${token}`)
+          if (saved) fetchShare(saved)
+        }
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoadingMeta(false))
@@ -204,8 +211,14 @@ export default function ShareView() {
     setWrongPassword(false)
     try {
       const data = await getShareByToken(token, password)
-      if (!data) { setWrongPassword(true) }
-      else { setShare(data) }
+      if (!data) {
+        // Saved password is no longer valid — clear it so the gate re-appears
+        if (sessionKey) sessionStorage.removeItem(sessionKey)
+        setWrongPassword(true)
+      } else {
+        if (password && sessionKey) sessionStorage.setItem(sessionKey, password)
+        setShare(data)
+      }
     } catch { setNotFound(true) }
     finally { setLoadingShare(false) }
   }
@@ -305,7 +318,8 @@ export default function ShareView() {
               </div>
 
               {stats.map(({ name, split, paid, remaining }) => {
-                const settled = remaining <= 0.005
+                const settled = Math.abs(remaining) <= 0.005
+                const credit = remaining < -0.005
                 const expanded = expandedParticipant === name
                 return (
                   <div key={name}>
@@ -320,8 +334,8 @@ export default function ShareView() {
                       <span className={`text-sm tabular-nums text-right font-medium ${paid > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
                         {paid > 0 ? fmt(paid) : '—'}
                       </span>
-                      <span className={`text-sm tabular-nums text-right font-semibold ${settled ? 'text-emerald-500' : 'text-rose-600'}`}>
-                        {settled ? '✓' : fmt(remaining)}
+                      <span className={`text-sm tabular-nums text-right font-semibold ${settled ? 'text-emerald-500' : credit ? 'text-blue-500' : 'text-rose-600'}`}>
+                        {settled ? '✓' : credit ? `+${fmt(Math.abs(remaining))}` : fmt(remaining)}
                       </span>
                       <svg
                         xmlns="http://www.w3.org/2000/svg"

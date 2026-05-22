@@ -708,9 +708,9 @@ export default function Dashboard() {
               const periodId = periods[selectedPeriodIdx]?.id
               const snapForPeriod = periodSnapshots.filter(s => s.period_id === periodId)
               const snapById = Object.fromEntries(snapForPeriod.map(s => [s.account_id, s.balance]))
-              const hasSnap = snapForPeriod.length > 0
+              // for the current (open) period always use live balances, never stale snapshots
+              const hasSnap = !isCurrent && snapForPeriod.length > 0
 
-              // fall back to live balance when no snapshot exists (current open period)
               const getBalance = (id: string) => hasSnap ? (snapById[id] ?? null) : (balances[id] ?? 0)
 
               const primary = checkingAccounts.find(a => a.name === 'ActivoBank') ?? checkingAccounts[0]
@@ -798,7 +798,8 @@ export default function Dashboard() {
           if (s.period_id === curPeriodId)  curSnapById[s.account_id]  = s.balance
           if (s.period_id === prevPeriodId) prevSnapById[s.account_id] = s.balance
         }
-        const hasCurSnap = Object.keys(curSnapById).length > 0
+        // for the current (open) period always use live balances, never stale snapshots
+        const hasCurSnap = !isCurrent && Object.keys(curSnapById).length > 0
         const getBalance = (id: string) => hasCurSnap ? (curSnapById[id] ?? null) : (balances[id] ?? 0)
 
         const HIDE_DELTA_TYPES = new Set(['checking', 'credit_card'])
