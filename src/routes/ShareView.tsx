@@ -334,8 +334,15 @@ export default function ShareView() {
                       <span className={`text-sm tabular-nums text-right font-medium ${paid > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
                         {paid > 0 ? fmt(paid) : '—'}
                       </span>
-                      <span className={`text-sm tabular-nums text-right font-semibold ${settled ? 'text-emerald-500' : credit ? 'text-blue-500' : 'text-rose-600'}`}>
-                        {settled ? '✓' : credit ? `+${fmt(Math.abs(remaining))}` : fmt(remaining)}
+                      <span className="text-right leading-tight">
+                        <span className={`text-sm tabular-nums font-semibold ${settled || credit ? 'text-emerald-500' : 'text-rose-600'}`}>
+                          {settled || credit ? '✓' : fmt(remaining)}
+                        </span>
+                        {credit && (
+                          <span className="block text-[11px] tabular-nums text-blue-400 font-medium">
+                            +{fmt(Math.abs(remaining))}
+                          </span>
+                        )}
                       </span>
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
