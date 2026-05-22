@@ -9,12 +9,16 @@ import Transactions from './routes/Transactions'
 import Budgets from './routes/Budgets'
 import Dashboard from './routes/Dashboard'
 import Periods from './routes/Periods'
+import Shares from './routes/Shares'
+import ShareView from './routes/ShareView'
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      {/* Public share view — no auth required */}
+      <Route path="/share/:token" element={<ShareView />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
@@ -23,6 +27,7 @@ export default function App() {
           <Route path="transactions" element={<Transactions />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="periods" element={<Periods />} />
+          <Route path="shares" element={<Shares />} />
         </Route>
       </Route>
     </Routes>

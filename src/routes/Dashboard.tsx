@@ -546,9 +546,6 @@ export default function Dashboard() {
   const categoryById = Object.fromEntries(categories.map(c => [c.id, c]))
   const excludedCatIds = new Set(categories.filter(c => c.exclude_from_totals).map(c => c.id))
 
-  // ── total balance ──────────────────────────────────────────────────────────
-  const totalBalance = Object.values(balances).reduce((s, n) => s + n, 0)
-
   // ── period bounds ──────────────────────────────────────────────────────────
   const currentBounds = getPeriodBounds(periods, selectedPeriodIdx)
   const { start: periodStart, end: periodEnd, label: periodLabel, isCurrent } = currentBounds
@@ -791,17 +788,23 @@ export default function Dashboard() {
 
       {/* ── Accounts + By type ───────────────────────────────────────────── */}
       {(() => {
-        // Previous closed period snapshot lookup: account_id → balance
-        const prevPeriodId = periods.length > 1 ? periods[1].id : null
-        const prevBalByAccount: Record<string, number> = {}
+        // Snapshot balances for the selected period (fall back to live if no snap)
+        const curPeriodId  = periods[selectedPeriodIdx]?.id
+        const prevPeriodId = periods[selectedPeriodIdx + 1]?.id
+
+        const curSnapById: Record<string, number>  = {}
+        const prevSnapById: Record<string, number> = {}
         for (const s of periodSnapshots) {
-          if (s.period_id === prevPeriodId) prevBalByAccount[s.account_id] = s.balance
+          if (s.period_id === curPeriodId)  curSnapById[s.account_id]  = s.balance
+          if (s.period_id === prevPeriodId) prevSnapById[s.account_id] = s.balance
         }
+        const hasCurSnap = Object.keys(curSnapById).length > 0
+        const getBalance = (id: string) => hasCurSnap ? (curSnapById[id] ?? null) : (balances[id] ?? 0)
 
         const HIDE_DELTA_TYPES = new Set(['checking', 'credit_card'])
 
-        function DeltaLine({ current, prev, type }: { current: number; prev: number | undefined; type: string }) {
-          if (prev == null || HIDE_DELTA_TYPES.has(type)) return null
+        function DeltaLine({ current, prev, type }: { current: number | null; prev: number | null; type: string }) {
+          if (current == null || prev == null || HIDE_DELTA_TYPES.has(type)) return null
           const abs = current - prev
           const pct = prev !== 0 ? (abs / Math.abs(prev)) * 100 : null
           const up = abs >= 0
@@ -812,22 +815,23 @@ export default function Dashboard() {
           )
         }
 
-
         return (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
             {/* individual accounts */}
             {(() => {
-              const maxAbs = Math.max(0, ...accounts.map(a => Math.abs(balances[a.id] ?? 0)))
+              const allBalances = accounts.map(a => getBalance(a.id) ?? 0)
+              const maxAbs = Math.max(0, ...allBalances.map(Math.abs))
               return (
                 <div className="border rounded-lg p-4">
-                  <p className="text-sm font-medium mb-3">Accounts</p>
+                  <p className="text-sm font-medium mb-3">Accounts · {periodLabel}</p>
                   {accounts.length === 0 ? (
                     <p className="text-slate-400 text-sm text-center">No accounts yet.</p>
                   ) : (
                     <div className="space-y-3">
                       {accounts.map(a => {
-                        const balance = balances[a.id] ?? 0
+                        const balance = getBalance(a.id)
+                        const prevBal = prevSnapById[a.id] ?? null
                         return (
                           <div key={a.id}>
                             <div className="flex items-start justify-between gap-2">
@@ -836,16 +840,18 @@ export default function Dashboard() {
                                 <p className="text-xs text-slate-500 capitalize">{a.type.replace('_', ' ')}</p>
                               </div>
                               <div className="text-right shrink-0">
-                                <p className={`tabular-nums text-sm font-medium ${balance > 0 ? 'text-emerald-600' : balance < 0 ? 'text-red-600' : ''}`}>
-                                  {new Intl.NumberFormat(undefined, { style: 'currency', currency: a.currency }).format(balance)}
-                                </p>
-                                <DeltaLine current={balance} prev={prevBalByAccount[a.id]} type={a.type} />
+                                {balance != null
+                                  ? <p className={`tabular-nums text-sm font-medium ${balance > 0 ? 'text-emerald-600' : balance < 0 ? 'text-red-600' : ''}`}>
+                                      {new Intl.NumberFormat(undefined, { style: 'currency', currency: a.currency }).format(balance)}
+                                    </p>
+                                  : <p className="tabular-nums text-sm font-medium text-slate-300">—</p>}
+                                <DeltaLine current={balance} prev={prevBal} type={a.type} />
                               </div>
                             </div>
                             <div className="bg-slate-200 rounded h-1 overflow-hidden mt-2">
                               <div
-                                className={`h-full rounded transition-all duration-300 ${balance >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
-                                style={{ width: maxAbs > 0 ? `${(Math.abs(balance) / maxAbs) * 100}%` : '0%' }}
+                                className={`h-full rounded transition-all duration-300 ${(balance ?? 0) >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
+                                style={{ width: maxAbs > 0 ? `${(Math.abs(balance ?? 0) / maxAbs) * 100}%` : '0%' }}
                               />
                             </div>
                           </div>
@@ -864,19 +870,21 @@ export default function Dashboard() {
                 if (!typeMap.has(a.type)) typeMap.set(a.type, [])
                 typeMap.get(a.type)!.push(a)
               }
-              const typeEntries = Array.from(typeMap.entries()).map(([type, accs]) => ({
-                type,
-                accs,
-                total: accs.reduce((sum, a) => sum + (balances[a.id] ?? 0), 0),
-                prevTotal: accs.every(a => prevBalByAccount[a.id] == null)
-                  ? undefined
-                  : accs.reduce((sum, a) => sum + (prevBalByAccount[a.id] ?? balances[a.id] ?? 0), 0),
-              }))
+              const typeEntries = Array.from(typeMap.entries()).map(([type, accs]) => {
+                const total = accs.reduce((sum, a) => {
+                  const b = getBalance(a.id); return sum + (b ?? 0)
+                }, 0)
+                const hasPrev = accs.some(a => prevSnapById[a.id] != null)
+                const prevTotal = hasPrev
+                  ? accs.reduce((sum, a) => sum + (prevSnapById[a.id] ?? getBalance(a.id) ?? 0), 0)
+                  : null
+                return { type, accs, total, prevTotal }
+              })
               const maxAbs = Math.max(0, ...typeEntries.map(e => Math.abs(e.total)))
 
               return (
                 <div className="border rounded-lg p-4">
-                  <p className="text-sm font-medium mb-3">By account type</p>
+                  <p className="text-sm font-medium mb-3">By account type · {periodLabel}</p>
                   {typeEntries.length === 0 ? (
                     <p className="text-slate-400 text-sm text-center">No accounts yet.</p>
                   ) : (
@@ -894,9 +902,7 @@ export default function Dashboard() {
                                 </p>
                               </div>
                               <div className="text-right shrink-0">
-                                <p className={`tabular-nums text-sm font-medium ${balanceColor}`}>
-                                  {fmt(total)}
-                                </p>
+                                <p className={`tabular-nums text-sm font-medium ${balanceColor}`}>{fmt(total)}</p>
                                 <DeltaLine current={total} prev={prevTotal} type={type} />
                               </div>
                             </div>

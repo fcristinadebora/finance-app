@@ -196,6 +196,80 @@ export type Database = {
         }
         Relationships: []
       }
+      share_payments: {
+        Row: {
+          id: string
+          share_id: string
+          user_id: string
+          payers: string[]
+          amount: number
+          paid_on: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          share_id: string
+          user_id: string
+          payers: string[]
+          amount: number
+          paid_on?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          share_id?: string
+          user_id?: string
+          payers?: string[]
+          amount?: number
+          paid_on?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "share_payments_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: false
+            referencedRelation: "shared_expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_expenses: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          extra_info: string | null
+          participants: string[]
+          share_token: string
+          password: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          extra_info?: string | null
+          participants?: string[]
+          share_token: string
+          password?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          extra_info?: string | null
+          participants?: string[]
+          share_token?: string
+          password?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           account_id: string
@@ -207,6 +281,7 @@ export type Database = {
           kind: string
           notes: string | null
           occurred_on: string
+          share_id: string | null
           transfer_pair_id: string | null
           user_id: string
         }
@@ -220,6 +295,7 @@ export type Database = {
           kind: string
           notes?: string | null
           occurred_on?: string
+          share_id?: string | null
           transfer_pair_id?: string | null
           user_id: string
         }
@@ -233,6 +309,7 @@ export type Database = {
           kind?: string
           notes?: string | null
           occurred_on?: string
+          share_id?: string | null
           transfer_pair_id?: string | null
           user_id?: string
         }
@@ -279,6 +356,14 @@ export type Database = {
       }
     }
     Functions: {
+      get_share_meta: {
+        Args: { p_token: string }
+        Returns: Json
+      }
+      get_share_by_token: {
+        Args: { p_token: string; p_password?: string }
+        Returns: Json
+      }
       create_transfer: {
         Args: {
           amount: number

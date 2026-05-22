@@ -7,6 +7,8 @@ import {
   createPeriod,
 } from '../data'
 import type { Transaction, Account, Category } from '../data'
+import { listShares } from '../data/shares'
+import type { Share } from '../data/shares'
 import SearchableSelect from '../components/SearchableSelect'
 import MobileSheet from '../components/MobileSheet'
 
@@ -26,6 +28,7 @@ export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [shares, setShares] = useState<Share[]>([])
   const [balances, setBalances] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
@@ -50,6 +53,7 @@ export default function Transactions() {
   // dialog state — income/expense only
   const [accountId, setAccountId] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [shareId, setShareId] = useState('')
 
   // dialog state — transfer only
   const [fromAccountId, setFromAccountId] = useState('')
@@ -79,16 +83,18 @@ export default function Transactions() {
 
   const load = async () => {
     try {
-      const [txs, accs, cats, bals] = await Promise.all([
+      const [txs, accs, cats, bals, shs] = await Promise.all([
         listTransactions(),
         listAccounts(),
         listCategories(),
         listAccountBalances(),
+        listShares(),
       ])
       setTransactions(txs)
       setAccounts(accs)
       setCategories(cats)
       setBalances(bals)
+      setShares(shs)
     } catch (err: any) {
       alert(err.message)
     } finally {
@@ -100,6 +106,7 @@ export default function Transactions() {
 
   const accountById = buildMap(accounts)
   const categoryById = buildMap(categories)
+  const shareById = buildMap(shares)
   const txById = buildMap(transactions)
 
   const excludedCatIds = new Set(
@@ -127,6 +134,7 @@ export default function Transactions() {
     setDate(today())
     setAccountId(accounts[0]?.id ?? '')
     setCategoryId('')
+    setShareId('')
     setDescription('')
     setNotes('')
     setFromAccountId(accounts[0]?.id ?? '')
@@ -154,10 +162,12 @@ export default function Transactions() {
       )
       setAccountId('')
       setCategoryId('')
+      setShareId('')
     } else {
       setTxType(t.amount >= 0 ? 'income' : 'expense')
       setAccountId(t.account_id)
       setCategoryId(t.category_id ?? '')
+      setShareId((t as any).share_id ?? '')
       setEditingTransferLegs(null)
     }
 
@@ -213,6 +223,7 @@ export default function Transactions() {
           occurred_on: date,
           account_id: accountId,
           category_id: categoryId || null,
+          share_id: shareId || null,
           description,
           notes: notes || null,
         }
@@ -473,6 +484,14 @@ export default function Transactions() {
                       {isTransfer
                         ? <span className="inline-flex items-center gap-1 text-xs font-medium bg-slate-200 text-slate-600 rounded px-1.5 py-0.5">{transferLabel}</span>
                         : <>{cat?.name ?? '—'}{cat && excludedCatIds.has(cat.id) && <span className="ml-1 text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">excluído</span>}</>}
+                      {!isTransfer && (t as any).share_id && (
+                        <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-medium bg-violet-100 text-violet-600 rounded px-1.5 py-0.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          {shareById[(t as any).share_id]?.title ?? 'shared'}
+                        </span>
+                      )}
                     </td>
                     <td className={`py-3 text-right font-medium tabular-nums ${t.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                       {acc ? formatAmount(t.amount, acc.currency) : t.amount}
@@ -517,6 +536,9 @@ export default function Transactions() {
                       <p className="text-slate-500 text-sm">
                         {format(new Date(t.occurred_on + 'T00:00:00'), 'MMM d, yyyy')}
                         {cat && <> · {cat.name}{excludedCatIds.has(cat.id) && <span className="ml-1 text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">excluído</span>}</>}
+                        {!isTransfer && (t as any).share_id && (
+                          <> · <span className="text-violet-500">{shareById[(t as any).share_id]?.title ?? 'shared'}</span></>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -678,6 +700,27 @@ export default function Transactions() {
                   options={[{ value: '', label: 'None' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
                 />
               </div>
+              {shares.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium" htmlFor="tx-share">
+                    Shared expense <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <SearchableSelect
+                    id="tx-share"
+                    value={shareId}
+                    onChange={setShareId}
+                    options={[
+                      { value: '', label: 'None' },
+                      ...shares.map(s => ({
+                        value: s.id,
+                        label: s.participants.length > 0
+                          ? `${s.title} · ${s.participants.join(', ')}`
+                          : s.title,
+                      })),
+                    ]}
+                  />
+                </div>
+              )}
             </>
           )}
 
