@@ -7,7 +7,7 @@ import type { SharePayment } from '../data/sharePayments'
 import MobileSheet from '../components/MobileSheet'
 
 function getShareUrl(token: string): string {
-  return `${window.location.origin}/#/share/${token}`
+  return `${window.location.origin}${import.meta.env.BASE_URL}#/share/${token}`
 }
 
 function ParticipantInput({
