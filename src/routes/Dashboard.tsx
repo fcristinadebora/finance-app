@@ -78,12 +78,13 @@ function PeriodRangeSelector({
 // ─── Account balance history chart ───────────────────────────────────────────
 
 function AccountBalanceHistoryChart({
-  periods, periodSnapshots, accounts, currency,
+  periods, periodSnapshots, accounts, currency, liveBalances,
 }: {
   periods: Period[]
   periodSnapshots: PeriodAccountSnapshot[]
   accounts: Account[]
   currency: string
+  liveBalances: Record<string, number>
 }) {
   const defaultOlder = Math.min(11, periods.length - 1)
   const [olderIdx, setOlderIdx] = useState(defaultOlder)
@@ -158,12 +159,18 @@ function AccountBalanceHistoryChart({
     }
 
     const labels = buckets.map(b => b.label)
+    const currentPeriodId = periods[0]?.id
+    const liveTotalBalance = Object.values(liveBalances).reduce((s, v) => s + v, 0)
     const datasets: any[] = []
 
     if (showTotal) {
       datasets.push({
         label: 'Total',
-        data: buckets.map(b => b.period.total_balance ?? null),
+        data: buckets.map(b =>
+          b.period.id === currentPeriodId
+            ? liveTotalBalance
+            : b.period.total_balance ?? null,
+        ),
         borderColor: '#1e293b',
         backgroundColor: 'transparent',
         borderWidth: 2.5,
@@ -181,7 +188,11 @@ function AccountBalanceHistoryChart({
         const color = CHART_COLORS[i % CHART_COLORS.length]
         datasets.push({
           label: a.name,
-          data: buckets.map(b => snapLookup[b.period.id]?.[a.id] ?? null),
+          data: buckets.map(b =>
+            b.period.id === currentPeriodId
+              ? (liveBalances[a.id] ?? null)
+              : (snapLookup[b.period.id]?.[a.id] ?? null),
+          ),
           borderColor: color,
           backgroundColor: color + '18',
           tension: 0.3,
@@ -193,7 +204,7 @@ function AccountBalanceHistoryChart({
       })
 
     return { labels, datasets }
-  }, [periods, snapLookup, accounts, from, to, hiddenAccounts, showTotal])
+  }, [periods, snapLookup, accounts, from, to, hiddenAccounts, showTotal, liveBalances])
 
   const options = useMemo(() => ({
     maintainAspectRatio: false,
@@ -409,12 +420,13 @@ function CategoryHistoryChart({
 // ─── Account-type history chart ──────────────────────────────────────────────
 
 function AccountTypeHistoryChart({
-  periods, periodSnapshots, accounts, currency,
+  periods, periodSnapshots, accounts, currency, liveBalances,
 }: {
   periods: Period[]
   periodSnapshots: PeriodAccountSnapshot[]
   accounts: Account[]
   currency: string
+  liveBalances: Record<string, number>
 }) {
   const defaultOlder = Math.min(11, periods.length - 1)
   const [olderIdx, setOlderIdx] = useState(defaultOlder)
@@ -460,9 +472,21 @@ function AccountTypeHistoryChart({
 
     const visible = accountTypes.filter(t => !hiddenTypes.has(t))
 
+    const currentPeriodId = periods[0]?.id
+
     const datasets = visible.map((type, i) => {
       const color = CHART_COLORS[i % CHART_COLORS.length]
       const data = slice.map(p => {
+        if (p.id === currentPeriodId) {
+          // Use live balances for the current (open) period
+          let total: number | null = null
+          for (const a of accounts) {
+            if (a.type === type) {
+              total = (total ?? 0) + (liveBalances[a.id] ?? 0)
+            }
+          }
+          return total
+        }
         const snaps = snapLookup[p.id] ?? {}
         let total: number | null = null
         for (const [accId, balance] of Object.entries(snaps)) {
@@ -485,7 +509,7 @@ function AccountTypeHistoryChart({
     })
 
     return { labels, datasets }
-  }, [periods, snapLookup, accountTypes, typeByAccountId, hiddenTypes, from, to])
+  }, [periods, snapLookup, accountTypes, typeByAccountId, hiddenTypes, from, to, liveBalances, accounts])
 
   const options = useMemo(() => ({
     maintainAspectRatio: false,
@@ -1032,6 +1056,7 @@ export default function Dashboard() {
         periodSnapshots={periodSnapshots}
         accounts={accounts}
         currency={currency}
+        liveBalances={balances}
       />
 
       {/* ── Historical balance by account type ───────────────────────────── */}
@@ -1040,6 +1065,7 @@ export default function Dashboard() {
         periodSnapshots={periodSnapshots}
         accounts={accounts}
         currency={currency}
+        liveBalances={balances}
       />
 
       {/* ── Historical spending by category ──────────────────────────────── */}
