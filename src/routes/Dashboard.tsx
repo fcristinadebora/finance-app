@@ -110,19 +110,60 @@ function AccountBalanceHistoryChart({
 
   const chartData = useMemo(() => {
     if (!periods.length) return null
-    // slice from newerIdx to olderIdx (inclusive), then reverse → oldest→newest on x-axis
-    const slice = periods.slice(to, from + 1).reverse()
-    const labels = slice.map((p, _) => {
-      const idx = periods.indexOf(p)
-      return getPeriodBounds(periods, idx).label
-    })
 
+    const slice = periods.slice(to, from + 1).reverse() // oldest first
+    if (!slice.length) return null
+
+    // Date range for the selected period window
+    const rangeStart = slice[0].started_on
+    const rangeEnd = getPeriodBounds(periods, to).end
+
+    // All periods oldest-first so we can find the active one for any date
+    const orderedPeriods = [...periods].reverse()
+
+    // Get the Monday of the week containing a date string
+    const getMonday = (dateStr: string): Date => {
+      const d = new Date(dateStr + 'T00:00:00')
+      const day = d.getDay()
+      d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day))
+      return d
+    }
+
+    // Build one bucket per week in the range
+    type WeekBucket = { label: string; period: Period }
+    const buckets: WeekBucket[] = []
+    const rangeEndDate = new Date(rangeEnd + 'T00:00:00')
+    let weekStart = getMonday(rangeStart)
+
+    while (weekStart <= rangeEndDate) {
+      const weekEndDate = new Date(weekStart)
+      weekEndDate.setDate(weekEndDate.getDate() + 6)
+      const weekEndStr = weekEndDate.toISOString().slice(0, 10)
+      const weekStartStr = weekStart.toISOString().slice(0, 10)
+
+      // Active period = most recent one whose started_on ≤ end of this week
+      let activePeriod: Period | null = null
+      for (const p of orderedPeriods) {
+        if (p.started_on <= weekEndStr) activePeriod = p
+      }
+
+      const weekOverlapsRange = weekEndStr >= rangeStart && weekStartStr <= rangeEnd
+      if (weekOverlapsRange && activePeriod) {
+        const label = weekStart.toLocaleDateString('default', { month: 'short', day: 'numeric' })
+        buckets.push({ label, period: activePeriod })
+      }
+
+      weekStart = new Date(weekStart)
+      weekStart.setDate(weekStart.getDate() + 7)
+    }
+
+    const labels = buckets.map(b => b.label)
     const datasets: any[] = []
 
     if (showTotal) {
       datasets.push({
         label: 'Total',
-        data: slice.map(p => p.total_balance ?? null),
+        data: buckets.map(b => b.period.total_balance ?? null),
         borderColor: '#1e293b',
         backgroundColor: 'transparent',
         borderWidth: 2.5,
@@ -140,7 +181,7 @@ function AccountBalanceHistoryChart({
         const color = CHART_COLORS[i % CHART_COLORS.length]
         datasets.push({
           label: a.name,
-          data: slice.map(p => snapLookup[p.id]?.[a.id] ?? null),
+          data: buckets.map(b => snapLookup[b.period.id]?.[a.id] ?? null),
           borderColor: color,
           backgroundColor: color + '18',
           tension: 0.3,
