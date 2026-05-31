@@ -38,6 +38,7 @@ export default function Transactions() {
   const [filterAccount, setFilterAccount] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterDirection, setFilterDirection] = useState<'' | 'income' | 'expense'>('')
+  const [filterAccountType, setFilterAccountType] = useState('')
   const [showTransfers, setShowTransfers] = useState(true)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
@@ -114,9 +115,11 @@ export default function Transactions() {
     categories.filter(c => c.exclude_from_totals).map(c => c.id)
   )
 
-  const hasFilters = !!(fromDate || toDate || filterAccount || filterCategory || filterDirection)
+  const accountTypes = [...new Set(accounts.map(a => a.type))].sort()
+
+  const hasFilters = !!(fromDate || toDate || filterAccount || filterCategory || filterDirection || filterAccountType)
   const activeFilterCount =
-    [fromDate, toDate, filterAccount, filterCategory, filterDirection].filter(Boolean).length +
+    [fromDate, toDate, filterAccount, filterCategory, filterDirection, filterAccountType].filter(Boolean).length +
     (!showTransfers ? 1 : 0)
 
   const visible = transactions.filter(t => {
@@ -124,6 +127,7 @@ export default function Transactions() {
     if (fromDate && t.occurred_on < fromDate) return false
     if (toDate && t.occurred_on > toDate) return false
     if (filterAccount && t.account_id !== filterAccount) return false
+    if (filterAccountType && accountById[t.account_id]?.type !== filterAccountType) return false
     if (filterCategory && t.category_id !== filterCategory) return false
     if (filterDirection === 'income' && t.amount < 0) return false
     if (filterDirection === 'expense' && t.amount >= 0) return false
@@ -350,11 +354,19 @@ export default function Transactions() {
               />
             </div>
             <div className="flex flex-col gap-1">
+              <label className="text-xs text-slate-500">Account type</label>
+              <SearchableSelect
+                value={filterAccountType}
+                onChange={setFilterAccountType}
+                options={[{ value: '', label: 'All types' }, ...accountTypes.map(t => ({ value: t, label: t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))]}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
               <label className="text-xs text-slate-500">Account</label>
               <SearchableSelect
                 value={filterAccount}
                 onChange={setFilterAccount}
-                options={[{ value: '', label: 'All accounts' }, ...accounts.map(a => ({ value: a.id, label: a.name }))]}
+                options={[{ value: '', label: 'All accounts' }, ...accounts.filter(a => !filterAccountType || a.type === filterAccountType).map(a => ({ value: a.id, label: a.name }))]}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -391,7 +403,7 @@ export default function Transactions() {
             </label>
             {activeFilterCount > 0 && (
               <button
-                onClick={() => { setFromDate(''); setToDate(''); setFilterAccount(''); setFilterCategory(''); setFilterDirection(''); setShowTransfers(true) }}
+                onClick={() => { setFromDate(''); setToDate(''); setFilterAccount(''); setFilterAccountType(''); setFilterCategory(''); setFilterDirection(''); setShowTransfers(true) }}
                 className="w-full border rounded px-3 py-3 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100"
               >
                 Clear filters
@@ -422,11 +434,19 @@ export default function Transactions() {
           />
         </div>
         <div className="flex flex-col gap-1">
+          <label className="text-xs text-slate-500">Account type</label>
+          <SearchableSelect
+            value={filterAccountType}
+            onChange={setFilterAccountType}
+            options={[{ value: '', label: 'All types' }, ...accountTypes.map(t => ({ value: t, label: t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))]}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
           <label className="text-xs text-slate-500">Account</label>
           <SearchableSelect
             value={filterAccount}
             onChange={setFilterAccount}
-            options={[{ value: '', label: 'All accounts' }, ...accounts.map(a => ({ value: a.id, label: a.name }))]}
+            options={[{ value: '', label: 'All accounts' }, ...accounts.filter(a => !filterAccountType || a.type === filterAccountType).map(a => ({ value: a.id, label: a.name }))]}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -463,7 +483,7 @@ export default function Transactions() {
         </label>
         {hasFilters && (
           <button
-            onClick={() => { setFromDate(''); setToDate(''); setFilterAccount(''); setFilterCategory(''); setFilterDirection('') }}
+            onClick={() => { setFromDate(''); setToDate(''); setFilterAccount(''); setFilterAccountType(''); setFilterCategory(''); setFilterDirection('') }}
             className="border rounded px-2 min-h-[44px] text-sm text-slate-700 hover:bg-white active:bg-slate-100"
           >
             Clear filters
