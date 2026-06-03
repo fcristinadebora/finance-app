@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { listShares, createShare, updateShare, deleteShare } from '../data/shares'
 import type { Share } from '../data/shares'
-import { listSharePayments, createSharePayment, deleteSharePayment } from '../data/sharePayments'
+import { listSharePayments, createSharePayment, updateSharePayment, deleteSharePayment } from '../data/sharePayments'
 import type { SharePayment } from '../data/sharePayments'
 import MobileSheet from '../components/MobileSheet'
 
@@ -104,6 +104,7 @@ export default function Shares() {
   const [pDate, setPDate] = useState('')
   const [pNotes, setPNotes] = useState('')
   const [pPending, setPPending] = useState(false)
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null)
 
   const today = () => new Date().toISOString().slice(0, 10)
 
@@ -126,21 +127,40 @@ export default function Shares() {
     }
   }
 
+  const openEditPayment = (p: SharePayment) => {
+    setEditingPaymentId(p.id)
+    setPPayerSelection(p.payers)
+    setPAmount(String(p.amount))
+    setPDate(p.paid_on)
+    setPNotes(p.notes ?? '')
+    setPaymentFormOpen(true)
+  }
+
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!paymentsShare || pPayerSelection.length === 0) return
     setPPending(true)
     try {
-      await createSharePayment({
-        shareId: paymentsShare.id,
-        payers: pPayerSelection,
-        amount: Number(pAmount),
-        paidOn: pDate,
-        notes: pNotes || null,
-      })
+      if (editingPaymentId) {
+        await updateSharePayment(editingPaymentId, {
+          payers: pPayerSelection,
+          amount: Number(pAmount),
+          paidOn: pDate,
+          notes: pNotes || null,
+        })
+      } else {
+        await createSharePayment({
+          shareId: paymentsShare.id,
+          payers: pPayerSelection,
+          amount: Number(pAmount),
+          paidOn: pDate,
+          notes: pNotes || null,
+        })
+      }
       const data = await listSharePayments(paymentsShare.id)
       setPayments(data)
       setPaymentFormOpen(false)
+      setEditingPaymentId(null)
       setPPayerSelection([])
       setPAmount('')
       setPDate(today())
@@ -585,7 +605,7 @@ export default function Shares() {
       {/* Payments sheet */}
       <MobileSheet
         open={paymentsShare !== null}
-        onClose={() => { setPaymentsShare(null); setPaymentFormOpen(false) }}
+        onClose={() => { setPaymentsShare(null); setPaymentFormOpen(false); setEditingPaymentId(null) }}
         title={`Payments · ${paymentsShare?.title ?? ''}`}
       >
         <div className="space-y-5">
@@ -638,10 +658,19 @@ export default function Shares() {
                       </p>
                       {p.notes && <p className="text-xs text-slate-400 mt-0.5 italic">{p.notes}</p>}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-semibold tabular-nums text-slate-900">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-sm font-semibold tabular-nums text-slate-900 mr-1">
                         {new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(p.amount)}
                       </span>
+                      <button
+                        onClick={() => openEditPayment(p)}
+                        className="p-1.5 text-slate-400 hover:text-slate-700 active:bg-slate-100 rounded"
+                        aria-label="Edit payment"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2.414a2 2 0 01.586-1.414z" />
+                        </svg>
+                      </button>
                       <button
                         onClick={() => handleDeletePayment(p.id)}
                         className="p-1.5 text-slate-400 hover:text-red-500 active:bg-slate-100 rounded"
@@ -666,7 +695,7 @@ export default function Shares() {
           {paymentsShare && paymentsShare.participants.length > 0 && (
             paymentFormOpen ? (
               <form onSubmit={handleAddPayment} className="space-y-3 border-t pt-4">
-                <p className="text-xs uppercase text-slate-400 font-medium">Add payment</p>
+                <p className="text-xs uppercase text-slate-400 font-medium">{editingPaymentId ? 'Edit payment' : 'Add payment'}</p>
 
                 {/* Payer selection */}
                 <div className="space-y-1">
@@ -746,11 +775,11 @@ export default function Shares() {
                     disabled={pPending || pPayerSelection.length === 0}
                     className="bg-slate-900 text-white px-4 py-2.5 rounded hover:bg-slate-800 active:brightness-90 disabled:opacity-50 flex-1 text-sm"
                   >
-                    {pPending ? 'Saving…' : 'Save payment'}
+                    {pPending ? 'Saving…' : editingPaymentId ? 'Update payment' : 'Save payment'}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPaymentFormOpen(false)}
+                    onClick={() => { setPaymentFormOpen(false); setEditingPaymentId(null); setPPayerSelection([]); setPAmount(''); setPDate(today()); setPNotes('') }}
                     className="border px-4 py-2.5 rounded hover:bg-slate-50 active:bg-slate-100 text-sm"
                   >
                     Cancel
@@ -759,7 +788,7 @@ export default function Shares() {
               </form>
             ) : (
               <button
-                onClick={() => { setPaymentFormOpen(true); setPDate(today()) }}
+                onClick={() => { setEditingPaymentId(null); setPPayerSelection([]); setPAmount(''); setPDate(today()); setPNotes(''); setPaymentFormOpen(true) }}
                 className="w-full flex items-center justify-center gap-2 border rounded-lg px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 active:bg-slate-100"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

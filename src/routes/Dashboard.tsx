@@ -831,7 +831,10 @@ export default function Dashboard() {
 
             {/* total balance */}
             {(() => {
-              const periodBalance = periods[selectedPeriodIdx]?.total_balance ?? null
+              const liveTotalBalance = Object.values(balances).reduce((s, v) => s + v, 0)
+              const periodBalance = isCurrent
+                ? liveTotalBalance
+                : (periods[selectedPeriodIdx]?.total_balance ?? null)
               const prevBalance   = prevPeriod?.total_balance ?? null
               return (
                 <div className="border rounded-lg p-4">

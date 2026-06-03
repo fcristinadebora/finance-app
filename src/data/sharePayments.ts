@@ -41,6 +41,25 @@ export async function createSharePayment(input: {
   return data
 }
 
+export async function updateSharePayment(
+  id: string,
+  input: { payers: string[]; amount: number; paidOn: string; notes?: string | null }
+): Promise<SharePayment> {
+  const { data, error } = await supabase
+    .from('share_payments')
+    .update({
+      payers: input.payers,
+      amount: input.amount,
+      paid_on: input.paidOn,
+      notes: input.notes ?? null,
+    })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function deleteSharePayment(id: string): Promise<void> {
   const { error } = await supabase.from('share_payments').delete().eq('id', id)
   if (error) throw error
