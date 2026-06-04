@@ -47,13 +47,13 @@ export default function Transactions() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [txType, setTxType] = useState<TxType>('expense')
   const [amount, setAmount] = useState('')
-  const [date, setDate] = useState(today())
+  const [date, setDate] = useState(() => localStorage.getItem('tx_last_date') ?? today())
   const [description, setDescription] = useState('')
   const [notes, setNotes] = useState('')
   const [pending, setPending] = useState(false)
 
   // dialog state — income/expense only
-  const [accountId, setAccountId] = useState('')
+  const [accountId, setAccountId] = useState(() => localStorage.getItem('tx_last_account') ?? '')
   const [categoryId, setCategoryId] = useState('')
   const [shareId, setShareId] = useState('')
 
@@ -138,8 +138,9 @@ export default function Transactions() {
     setEditingId(null)
     setTxType('expense')
     setAmount('')
-    setDate(today())
-    setAccountId(accounts[0]?.id ?? '')
+    setDate(localStorage.getItem('tx_last_date') ?? today())
+    const lastAccount = localStorage.getItem('tx_last_account')
+    setAccountId(lastAccount && accounts.find(a => a.id === lastAccount) ? lastAccount : (accounts[0]?.id ?? ''))
     setCategoryId('')
     setShareId('')
     setDescription('')
@@ -240,6 +241,8 @@ export default function Transactions() {
           await createTransaction(payload)
         }
       }
+      localStorage.setItem('tx_last_date', date)
+      if (txType !== 'transfer') localStorage.setItem('tx_last_account', accountId)
       setDialogOpen(false)
       setLoading(true)
       await load()
