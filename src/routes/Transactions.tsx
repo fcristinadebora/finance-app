@@ -753,27 +753,6 @@ export default function Transactions() {
                   options={[{ value: '', label: 'None' }, ...categories.map(c => ({ value: c.id, label: c.name }))]}
                 />
               </div>
-              {shares.length > 0 && (
-                <div className="space-y-1">
-                  <label className="text-sm font-medium" htmlFor="tx-share">
-                    Shared expense <span className="text-slate-400 font-normal">(optional)</span>
-                  </label>
-                  <SearchableSelect
-                    id="tx-share"
-                    value={shareId}
-                    onChange={setShareId}
-                    options={[
-                      { value: '', label: 'None' },
-                      ...shares.map(s => ({
-                        value: s.id,
-                        label: s.participants.length > 0
-                          ? `${s.title} · ${s.participants.join(', ')}`
-                          : s.title,
-                      })),
-                    ]}
-                  />
-                </div>
-              )}
             </>
           )}
 
@@ -799,6 +778,28 @@ export default function Transactions() {
               className="border rounded px-3 py-2 w-full resize-none"
             />
           </div>
+
+          {shares.length > 0 && (
+            <div className="space-y-1">
+              <label className="text-sm font-medium" htmlFor="tx-share">
+                Shared expense <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <SearchableSelect
+                id="tx-share"
+                value={shareId}
+                onChange={setShareId}
+                options={[
+                  { value: '', label: 'None' },
+                  ...shares.map(s => ({
+                    value: s.id,
+                    label: s.participants.length > 0
+                      ? `${s.title} · ${s.participants.join(', ')}`
+                      : s.title,
+                  })),
+                ]}
+              />
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button
